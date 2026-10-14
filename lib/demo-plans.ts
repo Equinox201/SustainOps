@@ -19,7 +19,7 @@ const defaultGovernanceReview: StoredActionPlan["governanceReview"] = {
   auditTimestamp: demoTimestamp,
 };
 
-export const demoActionPlans: StoredActionPlan[] = [
+const rawDemoActionPlans: Array<Omit<StoredActionPlan, "generationId">> = [
   {
     id: "demo-energy-floor-shutdown",
     title:
@@ -254,3 +254,7 @@ export const demoActionPlans: StoredActionPlan[] = [
     updatedAt: demoTimestamp,
   },
 ];
+
+export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
+  (plan) => ({ ...plan, generationId: null }),
+);

@@ -1,21 +1,21 @@
-import type { StoredActionPlan, TelemetryEvent } from "@/lib/types";
+import type { AuditEvent, StoredActionPlan } from "@/lib/types";
 import { AdoptionSignals } from "./AdoptionSignals";
 import { KnowledgeSourcesPanel } from "./KnowledgeSourcesPanel";
 
 export function InsightsView({
   plans,
-  telemetryEvents,
+  auditEvents,
 }: {
   plans: StoredActionPlan[];
-  telemetryEvents: TelemetryEvent[];
+  auditEvents: AuditEvent[];
 }) {
-  const hasNoSignals = plans.length === 0 && telemetryEvents.length === 0;
+  const hasNoSignals = plans.length === 0 && auditEvents.length === 0;
 
   return (
     <section className="space-y-4">
       <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-sm sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">
-          Local Intelligence
+          Insights
         </p>
         <h2 className="mt-2 text-3xl font-semibold tracking-normal text-stone-950">
           Insights & Knowledge
@@ -32,7 +32,7 @@ export function InsightsView({
         </div>
       ) : null}
 
-      <AdoptionSignals plans={plans} telemetryEvents={telemetryEvents} />
+      <AdoptionSignals plans={plans} auditEvents={auditEvents} />
       <KnowledgeSourcesPanel />
     </section>
   );

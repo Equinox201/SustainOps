@@ -17,6 +17,7 @@ type ActionPlanEditorProps = {
   errorMessage: string | null;
   successMessage: string | null;
   isGenerating: boolean;
+  isSaving: boolean;
   onBack: () => void;
   onDraftChange: (draft: EditorDraft) => void;
   onPanelChange: (panel: EditorPanel) => void;
@@ -33,6 +34,7 @@ export function ActionPlanEditor({
   errorMessage,
   successMessage,
   isGenerating,
+  isSaving,
   onBack,
   onDraftChange,
   onPanelChange,
@@ -52,6 +54,7 @@ export function ActionPlanEditor({
     <section className="space-y-5">
       <EditorToolbar
         draft={draft}
+        isSaving={isSaving}
         onBack={onBack}
         onSave={onSave}
         onApprove={onApprove}
@@ -64,6 +67,7 @@ export function ActionPlanEditor({
         errorMessage={errorMessage}
         successMessage={successMessage}
         isGenerating={isGenerating}
+        isSaving={isSaving}
         onGenerate={onGenerate}
         onApprove={onApprove}
         onComplete={onComplete}
@@ -131,11 +135,12 @@ export function ActionPlanEditor({
                   </p>
                 </div>
                 <button
-                  className="min-h-11 rounded-lg bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800"
+                  className="min-h-11 rounded-lg bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300"
                   type="button"
                   onClick={onSave}
+                  disabled={isSaving}
                 >
-                  Save Action Plan
+                  {isSaving ? "Saving..." : "Save Action Plan"}
                 </button>
               </div>
               <GeneratedPlan

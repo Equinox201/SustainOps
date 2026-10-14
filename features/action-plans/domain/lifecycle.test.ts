@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import { demoActionPlans } from "@/lib/demo-plans";
 import type { StoredActionPlan } from "@/lib/types";
 import {
-  draftToPlan,
+  applyContentUpdate,
+  checkDraftSavable,
+  createPlanFromContent,
+  draftToContent,
   isReadyForApproval,
+  planToContent,
   planToDraft,
   transitionPlan,
 } from "./lifecycle";
@@ -22,6 +26,7 @@ const readyChecklist: StoredActionPlan["readinessChecklist"] = {
 function makePlan(overrides: Partial<StoredActionPlan> = {}): StoredActionPlan {
   return {
     ...demoActionPlans[0],
+    generationId: null,
     owner: "Jordan Lee",
     targetDate: "2026-12-01",
     nextReviewDate: "2026-11-01",
@@ -143,70 +148,125 @@ describe("transitionPlan", () => {
   });
 });
 
-describe("draftToPlan", () => {
-  it("creates a new plan with an id and timestamps for an unsaved draft", () => {
-    const draft = { ...planToDraft(makePlan()), id: null, createdAt: null };
-    const result = draftToPlan(draft, NOW);
-
-    expect(result.ok).toBe(true);
-
-    if (result.ok) {
-      expect(result.plan.id).toEqual(expect.any(String));
-      expect(result.plan.createdAt).toBe(NOW);
-      expect(result.plan.updatedAt).toBe(NOW);
-    }
-  });
-
-  it("keeps the id and creation time of an existing plan", () => {
-    const plan = makePlan();
-    const result = draftToPlan(planToDraft(plan), NOW);
+describe("createPlanFromContent", () => {
+  it("creates an unapproved plan with the given id and timestamps", () => {
+    const content = planToContent(makePlan());
+    const result = createPlanFromContent(content, {
+      id: "plan-1",
+      now: NOW,
+      generatedAt: "2026-10-05T08:00:00.000Z",
+    });
 
     expect(result.ok && result.plan).toMatchObject({
-      id: plan.id,
-      createdAt: plan.createdAt,
+      id: "plan-1",
+      approved: false,
+      completed: false,
+      createdAt: NOW,
+      updatedAt: NOW,
+      governanceReview: {
+        reviewerStatus: "Pending",
+        auditTimestamp: "2026-10-05T08:00:00.000Z",
+      },
+    });
+  });
+
+  it("rejects content without a generated action plan", () => {
+    const content = { ...planToContent(makePlan()), actionPlan: null };
+
+    expect(
+      createPlanFromContent(content, { id: "x", now: NOW, generatedAt: null }),
+    ).toEqual({ ok: false, error: "not_generated" });
+  });
+});
+
+describe("applyContentUpdate", () => {
+  const options = { now: NOW, generatedAt: null };
+
+  it("applies any edit to a plan that is not approved", () => {
+    const content = { ...planToContent(makePlan()), owner: "Sam Ortiz" };
+    const result = applyContentUpdate(makePlan(), content, options);
+
+    expect(result.ok && result.plan).toMatchObject({
+      owner: "Sam Ortiz",
       updatedAt: NOW,
     });
   });
 
-  it("rejects a draft without a generated action plan", () => {
-    const draft = { ...planToDraft(makePlan()), actionPlan: null };
+  it("locks case, owner and AI output after approval", () => {
+    const approved = makePlan({ approved: true });
+    const content = { ...planToContent(approved), owner: "Sam Ortiz" };
 
-    expect(draftToPlan(draft, NOW)).toEqual({
+    expect(applyContentUpdate(approved, content, options)).toEqual({
       ok: false,
-      error: "not_generated",
+      error: "plan_locked",
     });
   });
 
-  it("rejects a draft with an incomplete case", () => {
-    const draft = planToDraft(makePlan());
-    draft.sustainabilityCase = { ...draft.sustainabilityCase, issue: " " };
-
-    expect(draftToPlan(draft, NOW)).toEqual({
-      ok: false,
-      error: "case_incomplete",
-    });
-  });
-
-  it("approving an edited draft stores the edits and the approval together", () => {
-    const draft = {
-      ...planToDraft(makePlan()),
-      id: null,
-      createdAt: null,
-      actionNotes: "Reviewed with Front Office",
+  it("still allows notes and KPI updates after approval", () => {
+    const approved = makePlan({ approved: true });
+    const content = {
+      ...planToContent(approved),
+      actionNotes: "Briefing delivered",
+      kpiProgress: { ...approved.kpiProgress, current: "1,100 kg" },
     };
-    const saved = draftToPlan(draft, NOW);
+    const result = applyContentUpdate(approved, content, options);
 
-    expect(saved.ok).toBe(true);
-
-    if (!saved.ok) {
-      return;
-    }
-
-    const approved = transitionPlan(saved.plan, "approve", NOW);
-
-    expect(approved.ok && approved.plan).toMatchObject({
-      actionNotes: "Reviewed with Front Office",
-      approved: true,
+    expect(result.ok && result.plan).toMatchObject({
+      actionNotes: "Briefing delivered",
+      kpiProgress: { current: "1,100 kg" },
     });
+  });
+
+  it("allows only notes once completed", () => {
+    const done = makePlan({ approved: true, completed: true });
+    const withKpi = {
+      ...planToContent(done),
+      kpiProgress: { ...done.kpiProgress, current: "changed" },
+    };
+    const withNotes = { ...planToContent(done), actionNotes: "Closed out" };
+
+    expect(applyContentUpdate(done, withKpi, options)).toEqual({
+      ok: false,
+      error: "plan_locked",
+    });
+    expect(applyContentUpdate(done, withNotes, options).ok).toBe(true);
+  });
+
+  it("refreshes the audit timestamp when the plan is regenerated", () => {
+    const content = {
+      ...planToContent(makePlan()),
+      generationId: "6f0c3c1e-5b8e-4a55-9d3c-0e3f6a1b2c3d",
+    };
+    const result = applyContentUpdate(makePlan(), content, {
+      now: NOW,
+      generatedAt: "2026-10-06T08:30:00.000Z",
+    });
+
+    expect(result.ok && result.plan.governanceReview.auditTimestamp).toBe(
+      "2026-10-06T08:30:00.000Z",
+    );
+  });
+});
+
+describe("draft helpers", () => {
+  it("round-trips a plan through a draft without losing content", () => {
+    const plan = makePlan();
+
+    expect(draftToContent(planToDraft(plan))).toEqual(planToContent(plan));
+  });
+
+  it("flags drafts that cannot be saved yet", () => {
+    const draft = planToDraft(makePlan());
+
+    expect(checkDraftSavable(draft)).toBeNull();
+    expect(checkDraftSavable({ ...draft, actionPlan: null })).toBe(
+      "not_generated",
+    );
+    expect(
+      checkDraftSavable({
+        ...draft,
+        sustainabilityCase: { ...draft.sustainabilityCase, issue: " " },
+      }),
+    ).toBe("case_incomplete");
   });
 });

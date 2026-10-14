@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { lifecycleErrorMessages } from "../domain/lifecycle";
 import { useActionPlanEditor } from "../hooks/useActionPlanEditor";
 import { useActionPlans } from "../hooks/useActionPlans";
-import { useTelemetry } from "../hooks/useTelemetry";
+import { useAuditEvents } from "../hooks/useAuditEvents";
 import type { MainView } from "../types";
 import { ActionPlanEditor } from "./ActionPlanEditor";
 import { ActionPlanList } from "./ActionPlanList";
@@ -14,72 +13,50 @@ import { InsightsView } from "./InsightsView";
 export default function ActionPlansApp() {
   const [currentMainView, setCurrentMainView] =
     useState<MainView>("actionPlans");
-  const { telemetryEvents, recordTelemetry, resetTelemetry } = useTelemetry();
+  const [notice, setNotice] = useState<string | null>(null);
   const {
     plans,
-    newDemoPlanCount,
+    loadState,
+    loadError,
+    refresh,
     savePlan,
     transition,
     deletePlan,
     loadDemoPlans,
-    resetPlans,
-  } = useActionPlans({ recordTelemetry });
-  const editor = useActionPlanEditor({
-    savePlan,
-    transition,
-    recordTelemetry,
-  });
+  } = useActionPlans();
+  const editor = useActionPlanEditor({ savePlan, transition });
+  const { events: auditEvents, error: auditError } = useAuditEvents(
+    currentMainView === "insights" && !editor.draft,
+  );
 
-  function handleDelete(planId: string) {
-    if (window.confirm("Delete this sustainability action plan?")) {
-      deletePlan(planId);
-    }
-  }
-
-  function handleClearLocalData() {
-    if (
-      window.confirm(
-        "Clear all locally saved sustainability action plans for this browser?",
-      )
-    ) {
-      resetPlans();
-      resetTelemetry();
-    }
-  }
-
-  function handleLoadDemoCases() {
-    if (newDemoPlanCount === 0) {
-      window.alert("Demo action plans are already loaded.");
+  async function handleDelete(planId: string) {
+    if (!window.confirm("Delete this sustainability action plan?")) {
       return;
     }
 
-    if (
-      plans.length > 0 &&
-      !window.confirm(
-        "This will add demo action plans to your local list. Continue?",
-      )
-    ) {
-      return;
-    }
-
-    loadDemoPlans();
+    const result = await deletePlan(planId);
+    setNotice(result.ok ? null : result.message);
   }
 
-  function handleApprove(planId: string) {
-    const plan = plans.find((currentPlan) => currentPlan.id === planId);
-
-    if (!plan) {
-      return;
-    }
-
-    const result = transition(plan, "approve");
+  async function handleLoadDemoCases() {
+    const result = await loadDemoPlans();
 
     if (!result.ok) {
-      window.alert(lifecycleErrorMessages[result.error]);
+      setNotice(result.message);
+      return;
     }
+
+    setNotice(
+      result.data.added === 0 ? "Demo action plans are already loaded." : null,
+    );
   }
 
-  function handleComplete(planId: string) {
+  async function handleApprove(planId: string) {
+    const result = await transition(planId, "approve");
+    setNotice(result.ok ? null : result.message);
+  }
+
+  async function handleComplete(planId: string) {
     const plan = plans.find((currentPlan) => currentPlan.id === planId);
 
     if (
@@ -91,7 +68,8 @@ export default function ActionPlansApp() {
       return;
     }
 
-    transition(plan, "complete");
+    const result = await transition(planId, "complete");
+    setNotice(result.ok ? null : result.message);
   }
 
   return (
@@ -104,6 +82,7 @@ export default function ActionPlansApp() {
             errorMessage={editor.errorMessage}
             successMessage={editor.successMessage}
             isGenerating={editor.isGenerating}
+            isSaving={editor.isSaving}
             onBack={editor.close}
             onDraftChange={editor.updateDraft}
             onPanelChange={editor.setActivePanel}
@@ -120,7 +99,37 @@ export default function ActionPlansApp() {
               onViewChange={setCurrentMainView}
               onCreate={editor.openNew}
             />
-            {currentMainView === "actionPlans" ? (
+
+            {notice ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+              >
+                {notice}
+              </div>
+            ) : null}
+
+            {loadState === "loading" ? (
+              <p className="text-sm text-stone-600">Loading action plans…</p>
+            ) : null}
+
+            {loadState === "error" ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-900"
+              >
+                <p>Action plans could not be loaded. {loadError}</p>
+                <button
+                  className="mt-2 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-semibold"
+                  type="button"
+                  onClick={() => void refresh()}
+                >
+                  Try again
+                </button>
+              </div>
+            ) : null}
+
+            {loadState === "ready" && currentMainView === "actionPlans" ? (
               <ActionPlanList
                 plans={plans}
                 onCreate={editor.openNew}
@@ -129,11 +138,17 @@ export default function ActionPlansApp() {
                 onDelete={handleDelete}
                 onApprove={handleApprove}
                 onComplete={handleComplete}
-                onClearLocalData={handleClearLocalData}
               />
-            ) : (
-              <InsightsView plans={plans} telemetryEvents={telemetryEvents} />
-            )}
+            ) : null}
+
+            {loadState === "ready" && currentMainView === "insights" ? (
+              <>
+                {auditError ? (
+                  <p className="text-sm text-rose-900">{auditError}</p>
+                ) : null}
+                <InsightsView plans={plans} auditEvents={auditEvents} />
+              </>
+            ) : null}
           </>
         )}
       </div>

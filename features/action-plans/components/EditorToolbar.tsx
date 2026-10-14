@@ -3,6 +3,7 @@ import { PlanStateBadges } from "./PlanStateBadges";
 
 export function EditorToolbar({
   draft,
+  isSaving,
   onBack,
   onSave,
   onApprove,
@@ -10,6 +11,7 @@ export function EditorToolbar({
   onResetApproval,
 }: {
   draft: EditorDraft;
+  isSaving: boolean;
   onBack: () => void;
   onSave: () => void;
   onApprove: () => void;
@@ -38,7 +40,7 @@ export function EditorToolbar({
             className="rounded-lg border border-stone-950 bg-stone-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
             type="button"
             onClick={onSave}
-            disabled={!draft.actionPlan}
+            disabled={!draft.actionPlan || isSaving}
           >
             Save Action Plan
           </button>
@@ -47,6 +49,7 @@ export function EditorToolbar({
               className="rounded-lg border border-emerald-700 bg-emerald-700 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-800"
               type="button"
               onClick={onApprove}
+              disabled={isSaving}
             >
               Mark Approved
             </button>

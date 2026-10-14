@@ -17,6 +17,7 @@ export type EditorDraft = {
   id: string | null;
   sustainabilityCase: SustainabilityCaseInput;
   actionPlan: AIActionPlan | null;
+  generationId: string | null;
   governanceReview: GovernanceReview;
   actionNotes: string;
   owner: string;

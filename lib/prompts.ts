@@ -1,4 +1,7 @@
-import type { SustainabilityCaseInput } from "@/lib/types";
+import type { SustainabilityCaseInput } from "@/lib/schemas/action-plan";
+
+/** Bump whenever the prompt text or output contract changes. */
+export const PROMPT_VERSION = "action-plan-v1";
 
 export const SUSTAINABILITY_SYSTEM_PROMPT = `
 You are the ImpactFlow sustainability operations assistant.
