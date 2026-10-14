@@ -1,14 +1,14 @@
-import type { StoredActionPlan, TelemetryEvent } from "@/lib/types";
-import { getAdoptionSignals } from "../domain/telemetry-utils";
+import type { AuditEvent, StoredActionPlan } from "@/lib/types";
+import { getAdoptionSignals } from "../domain/adoption-signals";
 
 export function AdoptionSignals({
   plans,
-  telemetryEvents,
+  auditEvents,
 }: {
   plans: StoredActionPlan[];
-  telemetryEvents: TelemetryEvent[];
+  auditEvents: AuditEvent[];
 }) {
-  const { metrics, departments } = getAdoptionSignals(plans, telemetryEvents);
+  const { metrics, departments } = getAdoptionSignals(plans, auditEvents);
 
   return (
     <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
@@ -21,7 +21,7 @@ export function AdoptionSignals({
             Workflow Usage
           </h2>
           <p className="mt-2 text-sm leading-6 text-stone-600">
-            Browser-local usage signals showing how teams are using the workflow.
+            Usage signals from the server-side audit log showing how teams use the workflow.
           </p>
         </div>
         {departments.length > 0 ? (
@@ -51,8 +51,7 @@ export function AdoptionSignals({
       </div>
 
       <p className="mt-5 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-600">
-        Usage signals are stored in this browser for demo purposes. A server-side
-        audit trail is planned.
+        Signals are computed from the server-side audit log.
       </p>
     </section>
   );

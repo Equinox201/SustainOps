@@ -1,55 +1,114 @@
-import type { AIActionPlan, SustainabilityCaseInput } from "@/lib/types";
-import { isAIActionPlan, isRecord } from "../domain/guards";
+import { z } from "zod";
+import {
+  auditEventSchema,
+  generationResponseSchema,
+  storedActionPlanSchema,
+  type PlanContent,
+  type SustainabilityCaseInput,
+} from "@/lib/schemas/action-plan";
+import type { AuditEvent, AuditEventType, StoredActionPlan } from "@/lib/types";
+import type { LifecycleEvent } from "../domain/lifecycle";
+import { apiRequest, type ApiResult } from "./api-client";
 
-export type GenerateActionPlanResult =
-  | { ok: true; actionPlan: AIActionPlan }
-  | { ok: false; error: string };
+const planResponse = z.object({ plan: storedActionPlanSchema });
+const plansResponse = z.object({ plans: z.array(storedActionPlanSchema) });
+const demoResponse = z.object({
+  added: z.number(),
+  plans: z.array(storedActionPlanSchema),
+});
+const eventsResponse = z.object({ events: z.array(auditEventSchema) });
+const okResponse = z.object({ ok: z.literal(true) });
 
-function getErrorMessage(value: unknown): string | null {
-  if (!isRecord(value)) {
-    return null;
-  }
+export type GenerationOutcome = z.infer<typeof generationResponseSchema>;
 
-  return typeof value.error === "string" ? value.error : null;
+function pickPlan(result: ApiResult<{ plan: StoredActionPlan }>) {
+  return result.ok ? { ok: true as const, data: result.data.plan } : result;
+}
+
+export async function fetchPlans() {
+  const result = await apiRequest("/api/action-plans", {
+    schema: plansResponse,
+  });
+
+  return result.ok ? { ok: true as const, data: result.data.plans } : result;
+}
+
+export async function createPlan(content: PlanContent) {
+  return pickPlan(
+    await apiRequest("/api/action-plans", {
+      method: "POST",
+      body: content,
+      schema: planResponse,
+    }),
+  );
+}
+
+export async function updatePlan(id: string, content: PlanContent) {
+  return pickPlan(
+    await apiRequest(`/api/action-plans/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: content,
+      schema: planResponse,
+    }),
+  );
+}
+
+export async function transitionPlan(
+  id: string,
+  event: LifecycleEvent,
+  content?: PlanContent,
+) {
+  return pickPlan(
+    await apiRequest(
+      `/api/action-plans/${encodeURIComponent(id)}/transition`,
+      {
+        method: "POST",
+        body: { event, content },
+        schema: planResponse,
+      },
+    ),
+  );
+}
+
+export async function deletePlan(id: string) {
+  return apiRequest(`/api/action-plans/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    schema: okResponse,
+  });
+}
+
+export async function loadDemoPlans() {
+  return apiRequest("/api/action-plans/demo", {
+    method: "POST",
+    schema: demoResponse,
+  });
 }
 
 export async function generateActionPlan(
-  input: SustainabilityCaseInput,
-): Promise<GenerateActionPlanResult> {
-  try {
-    const response = await fetch("/api/action-plan", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(input),
-    });
-    const data: unknown = await response.json();
+  sustainabilityCase: SustainabilityCaseInput,
+  planId: string | null,
+) {
+  return apiRequest("/api/action-plans/generate", {
+    method: "POST",
+    body: { sustainabilityCase, planId },
+    schema: generationResponseSchema,
+  });
+}
 
-    if (!response.ok) {
-      return {
-        ok: false,
-        error:
-          getErrorMessage(data) ??
-          "The action plan could not be generated. Please review the case details and try again.",
-      };
-    }
+export async function fetchAuditEvents() {
+  const result = await apiRequest("/api/audit-events", {
+    schema: eventsResponse,
+  });
 
-    const actionPlan = isRecord(data) ? data.actionPlan : null;
-
-    if (!isAIActionPlan(actionPlan)) {
-      return {
-        ok: false,
-        error: "The action plan response was not in the expected format.",
-      };
-    }
-
-    return { ok: true, actionPlan };
-  } catch {
-    return {
-      ok: false,
-      error:
-        "The request failed. Check your connection and try generating the action plan again.",
-    };
-  }
+  return result.ok
+    ? {
+        ok: true as const,
+        data: result.data.events.map(
+          (event): AuditEvent => ({
+            ...event,
+            eventType: event.eventType as AuditEventType,
+          }),
+        ),
+      }
+    : result;
 }

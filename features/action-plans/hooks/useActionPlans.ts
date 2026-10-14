@@ -1,157 +1,125 @@
-import { useCallback } from "react";
-import { demoActionPlans } from "@/lib/demo-plans";
-import type { StoredActionPlan, TelemetryEventName } from "@/lib/types";
-import {
-  transitionPlan,
-  type LifecycleEvent,
-  type LifecycleResult,
-} from "../domain/lifecycle";
-import { copyActionPlan } from "../domain/plan-utils";
-import {
-  readStoredActionPlans,
-  writeStoredActionPlans,
-} from "../storage/action-plan-storage";
-import type { RecordTelemetry } from "./useTelemetry";
-import { usePersistedList } from "./usePersistedList";
+import { useCallback, useEffect, useState } from "react";
+import type { PlanContent } from "@/lib/schemas/action-plan";
+import type { StoredActionPlan } from "@/lib/types";
+import type { LifecycleEvent } from "../domain/lifecycle";
+import * as api from "../services/action-plan-api";
 
-const lifecycleTelemetry: Record<LifecycleEvent, TelemetryEventName> = {
-  approve: "action_plan_approved",
-  complete: "action_plan_marked_done",
-  reset_approval: "approval_reset",
-};
-
-function hasKpiProgress(plan: StoredActionPlan) {
-  return Object.values(plan.kpiProgress).some(
-    (value) => value.trim().length > 0,
-  );
-}
+type LoadState = "loading" | "ready" | "error";
 
 /**
- * The single owner of saved action plans.
+ * Saved action plans, held in React state and backed by the server.
  *
- * Every mutation (save, lifecycle transition, delete) writes a complete plan
- * and records its telemetry only after the change has been applied.
+ * The server is the source of truth: every mutation waits for the server to
+ * confirm and then replaces the local copy with what the server returned.
  */
-export function useActionPlans({
-  recordTelemetry,
-}: {
-  recordTelemetry: RecordTelemetry;
-}) {
-  const { items: plans, setItems: setPlans, reset } = usePersistedList({
-    read: readStoredActionPlans,
-    write: writeStoredActionPlans,
-  });
+export function useActionPlans() {
+  const [plans, setPlans] = useState<StoredActionPlan[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const upsertPlan = useCallback(
-    (plan: StoredActionPlan) => {
-      setPlans((currentPlans) =>
-        currentPlans.some((currentPlan) => currentPlan.id === plan.id)
-          ? currentPlans.map((currentPlan) =>
-              currentPlan.id === plan.id ? plan : currentPlan,
-            )
-          : [plan, ...currentPlans],
-      );
-    },
-    [setPlans],
-  );
+  const refresh = useCallback(async () => {
+    const result = await api.fetchPlans();
 
-  /** Persists a plan (create or update) and records what changed. */
-  const savePlan = useCallback(
-    (plan: StoredActionPlan) => {
-      const department = plan.sustainabilityCase.department;
+    if (result.ok) {
+      setPlans(result.data);
+      setLoadError(null);
+      setLoadState("ready");
+    } else {
+      setLoadError(result.message);
+      setLoadState("error");
+    }
+  }, []);
 
-      upsertPlan(plan);
-      recordTelemetry({
-        eventName: "action_plan_saved",
-        planId: plan.id,
-        department,
-      });
+  useEffect(() => {
+    let isActive = true;
 
-      if (plan.actionNotes.trim().length > 0) {
-        recordTelemetry({
-          eventName: "action_notes_updated",
-          planId: plan.id,
-          department,
-        });
+    api.fetchPlans().then((result) => {
+      if (!isActive) {
+        return;
       }
-
-      if (hasKpiProgress(plan)) {
-        recordTelemetry({
-          eventName: "kpi_progress_updated",
-          planId: plan.id,
-          department,
-        });
-      }
-    },
-    [recordTelemetry, upsertPlan],
-  );
-
-  /**
-   * Applies approve / complete / reset to a plan and persists the result in
-   * the same step, so the stored record can never lag behind the UI.
-   */
-  const transition = useCallback(
-    (plan: StoredActionPlan, event: LifecycleEvent): LifecycleResult => {
-      const result = transitionPlan(plan, event, new Date().toISOString());
 
       if (result.ok) {
-        upsertPlan(result.plan);
-        recordTelemetry({
-          eventName: lifecycleTelemetry[event],
-          planId: plan.id,
-          department: plan.sustainabilityCase.department,
-        });
+        setPlans(result.data);
+        setLoadState("ready");
+      } else {
+        setLoadError(result.message);
+        setLoadState("error");
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const upsertLocal = useCallback((plan: StoredActionPlan) => {
+    setPlans((currentPlans) =>
+      currentPlans.some((currentPlan) => currentPlan.id === plan.id)
+        ? currentPlans.map((currentPlan) =>
+            currentPlan.id === plan.id ? plan : currentPlan,
+          )
+        : [plan, ...currentPlans],
+    );
+  }, []);
+
+  const savePlan = useCallback(
+    async (content: PlanContent, id: string | null) => {
+      const result = id
+        ? await api.updatePlan(id, content)
+        : await api.createPlan(content);
+
+      if (result.ok) {
+        upsertLocal(result.data);
       }
 
       return result;
     },
-    [recordTelemetry, upsertPlan],
+    [upsertLocal],
   );
 
-  const deletePlan = useCallback(
-    (planId: string) => {
-      const plan = plans.find((currentPlan) => currentPlan.id === planId);
+  const transition = useCallback(
+    async (id: string, event: LifecycleEvent, content?: PlanContent) => {
+      const result = await api.transitionPlan(id, event, content);
 
-      if (!plan) {
-        return;
+      if (result.ok) {
+        upsertLocal(result.data);
       }
 
-      setPlans((currentPlans) =>
-        currentPlans.filter((currentPlan) => currentPlan.id !== planId),
-      );
-      recordTelemetry({
-        eventName: "action_plan_deleted",
-        planId,
-        department: plan.sustainabilityCase.department,
-      });
+      return result;
     },
-    [plans, recordTelemetry, setPlans],
+    [upsertLocal],
   );
 
-  const newDemoPlans = demoActionPlans.filter(
-    (demoPlan) => !plans.some((plan) => plan.id === demoPlan.id),
-  );
+  const deletePlan = useCallback(async (id: string) => {
+    const result = await api.deletePlan(id);
 
-  /** Adds the demo plans that are not already in the list. */
-  const loadDemoPlans = useCallback(() => {
-    if (newDemoPlans.length === 0) {
-      return;
+    if (result.ok) {
+      setPlans((currentPlans) =>
+        currentPlans.filter((plan) => plan.id !== id),
+      );
     }
 
-    setPlans((currentPlans) => [
-      ...newDemoPlans.map(copyActionPlan),
-      ...currentPlans,
-    ]);
-    recordTelemetry({ eventName: "demo_cases_loaded" });
-  }, [newDemoPlans, recordTelemetry, setPlans]);
+    return result;
+  }, []);
+
+  const loadDemoPlans = useCallback(async () => {
+    const result = await api.loadDemoPlans();
+
+    if (result.ok) {
+      setPlans(result.data.plans);
+    }
+
+    return result;
+  }, []);
 
   return {
     plans,
-    newDemoPlanCount: newDemoPlans.length,
+    loadState,
+    loadError,
+    refresh,
     savePlan,
     transition,
     deletePlan,
     loadDemoPlans,
-    resetPlans: reset,
   };
 }

@@ -160,7 +160,7 @@ export function getOperationalOverviewMetrics(plans: StoredActionPlan[]) {
       {
         label: "Total Plans",
         value: plans.length,
-        helperText: "Saved in this browser",
+        helperText: "Stored in the database",
       },
       {
         label: "Pending Approval",

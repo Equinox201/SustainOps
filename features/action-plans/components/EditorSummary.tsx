@@ -9,6 +9,7 @@ export function EditorSummary({
   errorMessage,
   successMessage,
   isGenerating,
+  isSaving,
   onGenerate,
   onApprove,
   onComplete,
@@ -17,6 +18,7 @@ export function EditorSummary({
   errorMessage: string | null;
   successMessage: string | null;
   isGenerating: boolean;
+  isSaving: boolean;
   onGenerate: () => void;
   onApprove: () => void;
   onComplete: () => void;
@@ -73,7 +75,7 @@ export function EditorSummary({
           className={primaryButtonClassName}
           type="button"
           onClick={onGenerate}
-          disabled={isGenerating || draft.approved}
+          disabled={isGenerating || isSaving || draft.approved}
         >
           {isGenerating
             ? "Generating action plan..."
@@ -86,6 +88,7 @@ export function EditorSummary({
             className={secondaryButtonClassName}
             type="button"
             onClick={onApprove}
+            disabled={isSaving}
           >
             Mark Approved
           </button>
@@ -95,6 +98,7 @@ export function EditorSummary({
             className={secondaryButtonClassName}
             type="button"
             onClick={onComplete}
+            disabled={isSaving}
           >
             Mark Done
           </button>

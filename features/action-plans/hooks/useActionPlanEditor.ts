@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import type { PlanContent } from "@/lib/schemas/action-plan";
+import type { StoredActionPlan } from "@/lib/types";
 import {
   defaultSustainabilityCase,
   emptyGovernanceReview,
@@ -6,17 +8,29 @@ import {
   emptyReadinessChecklist,
 } from "../constants";
 import {
-  draftToPlan,
+  checkDraftSavable,
+  draftToContent,
+  isReadyForApproval,
   lifecycleErrorMessages,
   planToDraft,
   type LifecycleEvent,
-  type LifecycleResult,
 } from "../domain/lifecycle";
 import { hasCompleteCase, trimCase } from "../domain/plan-utils";
 import { generateActionPlan } from "../services/action-plan-api";
+import type { ApiResult } from "../services/api-client";
 import type { EditorDraft, EditorPanel } from "../types";
-import type { StoredActionPlan } from "@/lib/types";
-import type { RecordTelemetry } from "./useTelemetry";
+
+type PlanActions = {
+  savePlan: (
+    content: PlanContent,
+    id: string | null,
+  ) => Promise<ApiResult<StoredActionPlan>>;
+  transition: (
+    id: string,
+    event: LifecycleEvent,
+    content?: PlanContent,
+  ) => Promise<ApiResult<StoredActionPlan>>;
+};
 
 const successMessages: Record<LifecycleEvent, string | null> = {
   approve: null,
@@ -30,6 +44,7 @@ function createEmptyDraft(): EditorDraft {
     id: null,
     sustainabilityCase: defaultSustainabilityCase,
     actionPlan: null,
+    generationId: null,
     governanceReview: emptyGovernanceReview,
     actionNotes: "",
     owner: "",
@@ -45,24 +60,14 @@ function createEmptyDraft(): EditorDraft {
 }
 
 /** Editor state for one action plan: the draft, its panels, and its actions. */
-export function useActionPlanEditor({
-  savePlan,
-  transition,
-  recordTelemetry,
-}: {
-  savePlan: (plan: StoredActionPlan) => void;
-  transition: (
-    plan: StoredActionPlan,
-    event: LifecycleEvent,
-  ) => LifecycleResult;
-  recordTelemetry: RecordTelemetry;
-}) {
+export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
   const [draft, setDraft] = useState<EditorDraft | null>(null);
   const [activePanel, setActivePanel] = useState<EditorPanel>("case");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  // Bumped whenever an editor opens or closes, so a slow AI response cannot
+  // Bumped whenever an editor opens or closes, so a slow response cannot
   // land on a different plan than the one it was requested for.
   const sessionRef = useRef(0);
 
@@ -71,32 +76,27 @@ export function useActionPlanEditor({
     setSuccessMessage(null);
   }
 
-  function openNew() {
+  function resetEditorState(panel: EditorPanel) {
     sessionRef.current += 1;
-    recordTelemetry({
-      eventName: "action_plan_created",
-      department: defaultSustainabilityCase.department,
-    });
-    setDraft(createEmptyDraft());
-    setActivePanel("case");
+    setActivePanel(panel);
     setIsGenerating(false);
+    setIsSaving(false);
     clearMessages();
+  }
+
+  function openNew() {
+    resetEditorState("case");
+    setDraft(createEmptyDraft());
   }
 
   function openExisting(plan: StoredActionPlan) {
-    sessionRef.current += 1;
+    resetEditorState(plan.actionPlan ? "plan" : "case");
     setDraft(planToDraft(plan));
-    setActivePanel(plan.actionPlan ? "plan" : "case");
-    setIsGenerating(false);
-    clearMessages();
   }
 
   function close() {
-    sessionRef.current += 1;
+    resetEditorState("case");
     setDraft(null);
-    setActivePanel("case");
-    setIsGenerating(false);
-    clearMessages();
   }
 
   function updateDraft(nextDraft: EditorDraft) {
@@ -130,7 +130,7 @@ export function useActionPlanEditor({
     clearMessages();
     setIsGenerating(true);
 
-    const result = await generateActionPlan(sustainabilityCase);
+    const result = await generateActionPlan(sustainabilityCase, draft.id);
 
     if (session !== sessionRef.current) {
       return;
@@ -139,87 +139,138 @@ export function useActionPlanEditor({
     setIsGenerating(false);
 
     if (!result.ok) {
-      setErrorMessage(result.error);
+      setErrorMessage(result.message);
       return;
     }
+
+    const { actionPlan, generation } = result.data;
 
     setDraft((currentDraft) =>
       currentDraft
         ? {
             ...currentDraft,
             sustainabilityCase,
-            actionPlan: result.actionPlan,
+            actionPlan,
+            generationId: generation.id,
             approved: false,
             completed: false,
             governanceReview: {
-              humanReviewRequired: result.actionPlan.humanReviewRequired,
+              humanReviewRequired: true,
               containsGuestPersonalData: false,
               approvedOperationalUse: false,
               reviewerStatus: "Pending",
-              auditTimestamp: new Date().toISOString(),
+              auditTimestamp: generation.generatedAt,
             },
           }
         : currentDraft,
     );
     setActivePanel("plan");
-    recordTelemetry({
-      eventName: "action_plan_generated",
-      planId: draft.id ?? undefined,
-      department: sustainabilityCase.department,
-    });
   }
 
-  function save() {
+  async function save() {
     if (!draft) {
       return;
     }
 
-    const result = draftToPlan(draft, new Date().toISOString());
+    const problem = checkDraftSavable(draft);
 
-    if (!result.ok) {
-      setErrorMessage(lifecycleErrorMessages[result.error]);
+    if (problem) {
+      setErrorMessage(lifecycleErrorMessages[problem]);
       setSuccessMessage(null);
       return;
     }
 
-    savePlan(result.plan);
-    setDraft(planToDraft(result.plan));
-    setErrorMessage(null);
-    setSuccessMessage("Action plan saved locally.");
+    const session = sessionRef.current;
+
+    clearMessages();
+    setIsSaving(true);
+
+    const result = await savePlan(draftToContent(draft), draft.id);
+
+    if (session !== sessionRef.current) {
+      return;
+    }
+
+    setIsSaving(false);
+
+    if (!result.ok) {
+      setErrorMessage(result.message);
+      return;
+    }
+
+    setDraft(planToDraft(result.data));
+    setSuccessMessage("Action plan saved.");
   }
 
   /**
-   * Approve / complete / reset. Any edits in the editor are saved together
-   * with the transition, so what the reviewer sees is exactly what is stored.
+   * Approve / complete / reset. Pending edits travel with the request and
+   * are committed by the server in the same transaction as the transition.
+   * A brand-new draft is saved first, so the plan exists before approval.
    */
-  function runLifecycleEvent(event: LifecycleEvent) {
+  async function runLifecycleEvent(event: LifecycleEvent) {
     if (!draft) {
       return;
     }
 
-    const saved = draftToPlan(draft, new Date().toISOString());
+    const problem = checkDraftSavable(draft);
 
-    if (!saved.ok) {
-      setErrorMessage(lifecycleErrorMessages[saved.error]);
+    if (problem) {
+      setErrorMessage(lifecycleErrorMessages[problem]);
       setSuccessMessage(null);
       return;
     }
 
-    const result = transition(saved.plan, event);
+    if (event === "approve" && !isReadyForApproval(draft)) {
+      setErrorMessage(lifecycleErrorMessages.not_ready);
+      setSuccessMessage(null);
+      setActivePanel("case");
+      return;
+    }
+
+    const session = sessionRef.current;
+    const content = draftToContent(draft);
+
+    clearMessages();
+    setIsSaving(true);
+
+    let planId = draft.id;
+
+    if (!planId) {
+      const created = await savePlan(content, null);
+
+      if (session !== sessionRef.current) {
+        return;
+      }
+
+      if (!created.ok) {
+        setIsSaving(false);
+        setErrorMessage(created.message);
+        return;
+      }
+
+      planId = created.data.id;
+      setDraft(planToDraft(created.data));
+    }
+
+    const result = await transition(planId, event, content);
+
+    if (session !== sessionRef.current) {
+      return;
+    }
+
+    setIsSaving(false);
 
     if (!result.ok) {
-      setErrorMessage(lifecycleErrorMessages[result.error]);
-      setSuccessMessage(null);
+      setErrorMessage(result.message);
 
-      if (result.error === "not_ready") {
+      if (result.code === "not_ready") {
         setActivePanel("case");
       }
 
       return;
     }
 
-    setDraft(planToDraft(result.plan));
-    setErrorMessage(null);
+    setDraft(planToDraft(result.data));
     setSuccessMessage(successMessages[event]);
 
     if (event === "approve") {
@@ -230,7 +281,7 @@ export function useActionPlanEditor({
   }
 
   function approve() {
-    runLifecycleEvent("approve");
+    void runLifecycleEvent("approve");
   }
 
   function complete() {
@@ -243,17 +294,18 @@ export function useActionPlanEditor({
       return;
     }
 
-    runLifecycleEvent("complete");
+    void runLifecycleEvent("complete");
   }
 
   function resetApproval() {
-    runLifecycleEvent("reset_approval");
+    void runLifecycleEvent("reset_approval");
   }
 
   return {
     draft,
     activePanel,
     isGenerating,
+    isSaving,
     errorMessage,
     successMessage,
     setActivePanel,
