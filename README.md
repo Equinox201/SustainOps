@@ -125,6 +125,7 @@ Next, in order:
 npm install
 cp .env.example .env.local   # add DATABASE_URL, SESSION_SECRET, OPENAI_API_KEY
 npm run db:migrate           # create the tables in your database
+npm run db:check             # verify the connection, tables and seeded personas
 npm run dev
 ```
 

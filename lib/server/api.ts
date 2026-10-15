@@ -43,6 +43,46 @@ export function json(
 
 type RouteContext<P> = { requestId: string; params: P };
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * CSRF defence for every state-changing request, independent of the body:
+ * browsers label cross-site requests with Sec-Fetch-Site, and send an Origin
+ * header that must match the host being called.
+ */
+function rejectCrossSiteRequest(request: Request) {
+  if (SAFE_METHODS.has(request.method)) {
+    return;
+  }
+
+  const fetchSite = request.headers.get("sec-fetch-site");
+
+  if (fetchSite && fetchSite !== "same-origin" && fetchSite !== "none") {
+    throw new ApiError(403, "cross_site_request", "Cross-site requests are not allowed.");
+  }
+
+  const origin = request.headers.get("origin");
+  const host = request.headers.get("host");
+
+  if (origin && host) {
+    let originHost: string | null = null;
+
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      // Malformed origin is treated as a mismatch below.
+    }
+
+    if (originHost !== host) {
+      throw new ApiError(
+        403,
+        "cross_site_request",
+        "Cross-site requests are not allowed.",
+      );
+    }
+  }
+}
+
 /**
  * Wraps a route handler with request IDs, structured errors and logging.
  * Unexpected errors are logged with the request ID and returned as a generic
@@ -58,6 +98,8 @@ export function withApi<P = Record<string, string>>(
     const requestId = getRequestId(request);
 
     try {
+      rejectCrossSiteRequest(request);
+
       const params = await routeContext.params;
       const response = await handler(request, { requestId, params });
       response.headers.set("x-request-id", requestId);

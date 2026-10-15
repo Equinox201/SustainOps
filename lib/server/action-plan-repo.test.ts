@@ -343,6 +343,40 @@ describe("plan lifecycle", () => {
   });
 });
 
+describe("audit accuracy", () => {
+  it("does not log KPI or notes changes that did not happen", async () => {
+    const kpi = {
+      baseline: "1,000 kg",
+      current: "1,100 kg",
+      target: "1,000 kg",
+      latestUpdate: "Trending down",
+    };
+    const plan = await createPlan(
+      db,
+      makeContent({ kpiProgress: kpi, actionNotes: "Kick-off done" }),
+      as(MAYA),
+    );
+
+    // An unrelated edit, re-sending the same KPI values. jsonb stores object
+    // keys in a different order than they are sent, which once looked like a
+    // change.
+    await updatePlan(
+      db,
+      plan.id,
+      makeContent({ priority: "Low", kpiProgress: kpi, actionNotes: "Kick-off done" }),
+      as(MAYA),
+    );
+
+    const history = await getPlanHistory(db, plan.id, MAYA);
+    const count = (type: string) =>
+      history.filter((event) => event.eventType === type).length;
+
+    expect(count("kpi_progress_updated")).toBe(1); // only on creation
+    expect(count("action_notes_updated")).toBe(1);
+    expect(count("action_plan_updated")).toBe(1);
+  });
+});
+
 describe("review: request changes", () => {
   it("requires a comment", async () => {
     const plan = await createPlan(db, makeContent(), as(MAYA));
