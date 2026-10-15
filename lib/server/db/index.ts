@@ -3,6 +3,7 @@ import type { PgDatabase } from "drizzle-orm/pg-core";
 import postgres from "postgres";
 import { ApiError } from "../api";
 import { getEnv } from "../env";
+import { normalizeDatabaseUrl } from "./url";
 import * as schema from "./schema";
 
 // Any Drizzle Postgres driver (postgres.js in production, PGlite in tests).
@@ -27,8 +28,24 @@ export function getDb(): Database {
     );
   }
 
+  const normalized = normalizeDatabaseUrl(DATABASE_URL);
+
+  if (!normalized.ok) {
+    throw new ApiError(
+      503,
+      "database_misconfigured",
+      normalized.reason === "placeholder_password"
+        ? "DATABASE_URL still contains the [YOUR-PASSWORD] placeholder. Put your database password in it."
+        : "DATABASE_URL is not a valid postgres:// connection string.",
+    );
+  }
+
   // prepare:false keeps this compatible with Supabase's transaction pooler.
-  const client = postgres(DATABASE_URL, { prepare: false, max: 5 });
+  const client = postgres(normalized.url, {
+    prepare: false,
+    max: 5,
+    connect_timeout: 10,
+  });
   database = drizzle(client, { schema });
   return database;
 }
