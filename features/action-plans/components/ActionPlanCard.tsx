@@ -24,12 +24,18 @@ function Detail({
 
 export function ActionPlanCard({
   plan,
+  canApprove,
+  canComplete,
+  canDelete,
   onEdit,
   onDelete,
   onApprove,
   onComplete,
 }: {
   plan: StoredActionPlan;
+  canApprove: boolean;
+  canComplete: boolean;
+  canDelete: boolean;
   onEdit: (plan: StoredActionPlan) => void;
   onDelete: (planId: string) => void;
   onApprove: (planId: string) => void;
@@ -51,7 +57,11 @@ export function ActionPlanCard({
               {plan.sustainabilityCase.department}
             </Detail>
             <Detail label="Approval">
-              {plan.approved ? "Approved" : "Pending review"}
+              {plan.approved
+                ? `Approved${plan.approvedBy ? ` by ${plan.approvedBy.name}` : ""}`
+                : plan.reviewStatus === "changes_requested"
+                  ? "Changes requested"
+                  : "Pending review"}
             </Detail>
             <Detail label="Owner">{plan.owner || "Unassigned"}</Detail>
             <Detail label="Priority">{plan.priority}</Detail>
@@ -75,16 +85,16 @@ export function ActionPlanCard({
           >
             View / Edit
           </button>
-          {!plan.approved ? (
+          {canApprove && !plan.approved && !plan.completed ? (
             <button
               className={`${actionButtonBaseClassName} border border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800`}
               type="button"
               onClick={() => onApprove(plan.id)}
             >
-              Mark Approved
+              Approve
             </button>
           ) : null}
-          {plan.approved && !plan.completed ? (
+          {canComplete && plan.approved && !plan.completed ? (
             <button
               className={`${actionButtonBaseClassName} border border-stone-900 bg-stone-900 text-white hover:bg-stone-800`}
               type="button"
@@ -93,13 +103,15 @@ export function ActionPlanCard({
               Mark Done
             </button>
           ) : null}
-          <button
-            className={`${actionButtonBaseClassName} border border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100`}
-            type="button"
-            onClick={() => onDelete(plan.id)}
-          >
-            Delete
-          </button>
+          {canDelete ? (
+            <button
+              className={`${actionButtonBaseClassName} border border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100`}
+              type="button"
+              onClick={() => onDelete(plan.id)}
+            >
+              Delete
+            </button>
+          ) : null}
         </div>
       </div>
     </article>
