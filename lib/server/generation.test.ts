@@ -17,9 +17,11 @@ const MAYA: Principal = {
 
 const env: ServerEnv = {
   OPENAI_API_KEY: "test-key",
+  OPENAI_BASE_URL: undefined,
   OPENAI_MODEL: "test-model",
   OPENAI_TIMEOUT_MS: 1000,
   DATABASE_URL: undefined,
+  DATABASE_POOL_MAX: 5,
   SESSION_SECRET: undefined,
   GENERATION_LIMIT_PER_HOUR: 2,
   GENERATION_DAILY_CAP: 100,
