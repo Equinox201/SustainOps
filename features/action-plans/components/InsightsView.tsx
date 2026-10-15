@@ -6,12 +6,15 @@ import { KnowledgeSourcesPanel } from "./KnowledgeSourcesPanel";
 export function InsightsView({
   plans,
   auditEvents,
+  auditLoading,
 }: {
   plans: StoredActionPlan[];
   auditEvents: AuditEvent[];
+  auditLoading: boolean;
 }) {
-  const { documents, error } = useKnowledgeDocuments(true);
-  const hasNoSignals = plans.length === 0 && auditEvents.length === 0;
+  const { documents, error, isLoading } = useKnowledgeDocuments(true);
+  const hasNoSignals =
+    !auditLoading && plans.length === 0 && auditEvents.length === 0;
 
   return (
     <section className="space-y-4">
@@ -23,8 +26,8 @@ export function InsightsView({
           Insights & Knowledge
         </h2>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-stone-600 sm:text-base">
-          Monitor adoption signals and see the approved sustainability
-          knowledge sources that ground every recommendation.
+          Monitor adoption signals and see the approved sustainability knowledge
+          sources that ground every recommendation.
         </p>
       </div>
 
@@ -34,8 +37,16 @@ export function InsightsView({
         </div>
       ) : null}
 
-      <AdoptionSignals plans={plans} auditEvents={auditEvents} />
-      <KnowledgeSourcesPanel documents={documents} error={error} />
+      <AdoptionSignals
+        plans={plans}
+        auditEvents={auditEvents}
+        isLoading={auditLoading}
+      />
+      <KnowledgeSourcesPanel
+        documents={documents}
+        error={error}
+        isLoading={isLoading}
+      />
     </section>
   );
 }

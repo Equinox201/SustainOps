@@ -1,8 +1,4 @@
-import type {
-  AuditEvent,
-  AuditEventType,
-  StoredActionPlan,
-} from "@/lib/types";
+import type { AuditEvent, AuditEventType, StoredActionPlan } from "@/lib/types";
 import type { OverviewMetric } from "../types";
 
 function countEvents(events: AuditEvent[], ...types: AuditEventType[]) {
@@ -52,7 +48,11 @@ export function getAdoptionSignals(
       },
       {
         label: "Saved",
-        value: countEvents(events, "action_plan_created", "action_plan_updated"),
+        value: countEvents(
+          events,
+          "action_plan_created",
+          "action_plan_updated",
+        ),
         helperText: "Plan saves recorded in the audit log",
       },
       {

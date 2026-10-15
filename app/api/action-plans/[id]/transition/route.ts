@@ -13,7 +13,7 @@ type Params = { id: string };
 export const POST = withApi<Params>(async (request, { requestId, params }) => {
   const db = getDb();
   const actor = await requirePrincipal(request, db);
-  const { event, content, comment } = await parseBody(
+  const { event, expectedVersion, content, comment } = await parseBody(
     request,
     transitionRequestSchema,
   );
@@ -21,7 +21,7 @@ export const POST = withApi<Params>(async (request, { requestId, params }) => {
     db,
     params.id,
     event,
-    { content, comment },
+    { expectedVersion, content, comment },
     { requestId, actor },
   );
 

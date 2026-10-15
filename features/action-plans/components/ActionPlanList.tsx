@@ -1,6 +1,12 @@
 import type { SessionUser } from "@/lib/schemas/action-plan";
 import type { StoredActionPlan } from "@/lib/types";
+import {
+  filterPlans,
+  hasActiveFilters,
+  type PlanFilters,
+} from "../domain/filters";
 import { can } from "../domain/permissions";
+import { PlanFiltersBar } from "./PlanFilters";
 import { ActionPlanCard } from "./ActionPlanCard";
 import { OperationalOverview } from "./OperationalOverview";
 
@@ -14,6 +20,8 @@ type ActionPlanListProps = {
   onApprove: (planId: string) => void;
   onComplete: (planId: string) => void;
   onResetDemo: () => void;
+  filters: PlanFilters;
+  onFiltersChange: (filters: PlanFilters) => void;
 };
 
 export function ActionPlanList({
@@ -26,8 +34,11 @@ export function ActionPlanList({
   onApprove,
   onComplete,
   onResetDemo,
+  filters,
+  onFiltersChange,
 }: ActionPlanListProps) {
   const canCreate = can(user, "plan:create");
+  const visiblePlans = filterPlans(plans, filters);
 
   return (
     <section className="space-y-4">
@@ -44,8 +55,8 @@ export function ActionPlanList({
       <div className="flex flex-col gap-3 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-600 sm:flex-row sm:items-center sm:justify-between">
         <p>
           All properties, policies and data in this demo are fictional. Plans
-          are stored in a PostgreSQL database and every change is recorded in
-          an audit log.
+          are stored in a PostgreSQL database and every change is recorded in an
+          audit log.
         </p>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
           {canCreate ? (
@@ -68,6 +79,15 @@ export function ActionPlanList({
           ) : null}
         </div>
       </div>
+
+      {plans.length > 0 ? (
+        <PlanFiltersBar
+          plans={plans}
+          filters={filters}
+          shown={visiblePlans.length}
+          onChange={onFiltersChange}
+        />
+      ) : null}
 
       {plans.length === 0 ? (
         <div className="rounded-lg border border-dashed border-stone-300 bg-white px-6 py-14 text-center shadow-sm">
@@ -98,9 +118,13 @@ export function ActionPlanList({
             </div>
           ) : null}
         </div>
+      ) : visiblePlans.length === 0 && hasActiveFilters(filters) ? (
+        <div className="rounded-lg border border-dashed border-stone-300 bg-white px-6 py-10 text-center text-sm text-stone-600">
+          No plans match these filters.
+        </div>
       ) : (
         <div className="grid gap-4">
-          {plans.map((plan) => (
+          {visiblePlans.map((plan) => (
             <ActionPlanCard
               key={plan.id}
               plan={plan}

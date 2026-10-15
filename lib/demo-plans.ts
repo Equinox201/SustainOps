@@ -21,6 +21,7 @@ const defaultGovernanceReview: StoredActionPlan["governanceReview"] = {
 
 type SeedFields =
   | "generationId"
+  | "version"
   | "reviewStatus"
   | "reviewComment"
   | "createdBy"
@@ -321,6 +322,7 @@ export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
       grounding: { status: "ungrounded", retrievedCount: 0 },
     },
     generationId: null,
+    version: 1,
     reviewStatus: "none",
     reviewComment: null,
     createdBy: null,

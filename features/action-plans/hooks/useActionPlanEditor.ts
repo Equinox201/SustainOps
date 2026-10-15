@@ -7,16 +7,18 @@ import {
   emptyKpiProgress,
   emptyReadinessChecklist,
 } from "../constants";
+import { isDraftDirty } from "../domain/dirty";
 import {
   checkDraftSavable,
   draftToContent,
   isReadyForApproval,
   lifecycleErrorMessages,
+  planToContent,
   planToDraft,
   type LifecycleEvent,
 } from "../domain/lifecycle";
 import { hasCompleteCase, trimCase } from "../domain/plan-utils";
-import { generateActionPlan } from "../services/action-plan-api";
+import { fetchPlan, generateActionPlan } from "../services/action-plan-api";
 import type { ApiResult } from "../services/api-client";
 import type { EditorDraft, EditorPanel } from "../types";
 
@@ -24,11 +26,16 @@ type PlanActions = {
   savePlan: (
     content: PlanContent,
     id: string | null,
+    expectedVersion: number | null,
   ) => Promise<ApiResult<StoredActionPlan>>;
   transition: (
     id: string,
     event: LifecycleEvent,
-    options?: { content?: PlanContent; comment?: string },
+    options: {
+      expectedVersion: number;
+      content?: PlanContent;
+      comment?: string;
+    },
   ) => Promise<ApiResult<StoredActionPlan>>;
 };
 
@@ -54,6 +61,7 @@ function createEmptyDraft(): EditorDraft {
     nextReviewDate: "",
     readinessChecklist: { ...emptyReadinessChecklist },
     kpiProgress: { ...emptyKpiProgress },
+    version: null,
     approved: false,
     completed: false,
     reviewStatus: "none",
@@ -73,6 +81,10 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // True after the server rejected a save because someone else changed the plan.
+  const [hasConflict, setHasConflict] = useState(false);
+  // The content as last loaded or saved, to tell real edits from none.
+  const [baseline, setBaseline] = useState<PlanContent | null>(null);
   // Bumped whenever an editor opens or closes, so a slow response cannot
   // land on a different plan than the one it was requested for.
   const sessionRef = useRef(0);
@@ -80,6 +92,7 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
   function clearMessages() {
     setErrorMessage(null);
     setSuccessMessage(null);
+    setHasConflict(false);
   }
 
   function resetEditorState(panel: EditorPanel) {
@@ -92,17 +105,22 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
 
   function openNew() {
     resetEditorState("case");
-    setDraft(createEmptyDraft());
+    const empty = createEmptyDraft();
+
+    setDraft(empty);
+    setBaseline(draftToContent(empty));
   }
 
   function openExisting(plan: StoredActionPlan) {
     resetEditorState(plan.actionPlan ? "plan" : "case");
     setDraft(planToDraft(plan));
+    setBaseline(planToContent(plan));
   }
 
   function close() {
     resetEditorState("case");
     setDraft(null);
+    setBaseline(null);
   }
 
   function updateDraft(nextDraft: EditorDraft) {
@@ -191,7 +209,11 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     clearMessages();
     setIsSaving(true);
 
-    const result = await savePlan(draftToContent(draft), draft.id);
+    const result = await savePlan(
+      draftToContent(draft),
+      draft.id,
+      draft.version,
+    );
 
     if (session !== sessionRef.current) {
       return;
@@ -201,10 +223,12 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
 
     if (!result.ok) {
       setErrorMessage(result.message);
+      setHasConflict(result.code === "stale_write");
       return;
     }
 
     setDraft(planToDraft(result.data));
+    setBaseline(planToContent(result.data));
     setSuccessMessage("Action plan saved.");
   }
 
@@ -240,9 +264,10 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     setIsSaving(true);
 
     let planId = draft.id;
+    let version = draft.version ?? 1;
 
     if (!planId) {
-      const created = await savePlan(content, null);
+      const created = await savePlan(content, null, null);
 
       if (session !== sessionRef.current) {
         return;
@@ -255,10 +280,16 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
       }
 
       planId = created.data.id;
+      version = created.data.version;
       setDraft(planToDraft(created.data));
+      setBaseline(planToContent(created.data));
     }
 
-    const result = await transition(planId, event, { content, comment });
+    const result = await transition(planId, event, {
+      expectedVersion: version,
+      content,
+      comment,
+    });
 
     if (session !== sessionRef.current) {
       return;
@@ -268,6 +299,7 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
 
     if (!result.ok) {
       setErrorMessage(result.message);
+      setHasConflict(result.code === "stale_write");
 
       if (result.code === "not_ready") {
         setActivePanel("case");
@@ -277,6 +309,7 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     }
 
     setDraft(planToDraft(result.data));
+    setBaseline(planToContent(result.data));
     setSuccessMessage(successMessages[event]);
 
     if (event === "approve") {
@@ -284,6 +317,30 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     } else if (event === "reset_approval") {
       setActivePanel("case");
     }
+  }
+
+  /** Replaces the draft with the server's current copy (discarding local edits). */
+  async function reloadLatest() {
+    if (!draft?.id) {
+      return;
+    }
+
+    const session = sessionRef.current;
+    const result = await fetchPlan(draft.id);
+
+    if (session !== sessionRef.current) {
+      return;
+    }
+
+    if (!result.ok) {
+      setErrorMessage(result.message);
+      return;
+    }
+
+    setDraft(planToDraft(result.data));
+    setBaseline(planToContent(result.data));
+    clearMessages();
+    setSuccessMessage("Loaded the latest version.");
   }
 
   function approve() {
@@ -324,6 +381,9 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     isSaving,
     errorMessage,
     successMessage,
+    hasConflict,
+    isDirty: isDraftDirty(draft, baseline),
+    reloadLatest,
     setActivePanel,
     openNew,
     openExisting,

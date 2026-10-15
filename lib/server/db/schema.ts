@@ -114,6 +114,8 @@ export const actionPlans = pgTable(
     actionNotes: text("action_notes").notNull().default(""),
     approved: boolean("approved").notNull().default(false),
     completed: boolean("completed").notNull().default(false),
+    // Optimistic concurrency token: bumped on every successful write.
+    version: integer("version").notNull().default(1),
     reviewStatus: text("review_status").notNull().default("none"),
     reviewComment: text("review_comment"),
     createdBy: text("created_by").references(() => users.id, {

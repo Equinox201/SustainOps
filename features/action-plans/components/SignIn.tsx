@@ -47,7 +47,9 @@ export function SignIn({
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-800">
           AI-assisted sustainability operations
         </p>
-        <h1 className="mt-2 text-4xl font-semibold text-stone-950">SustainOps</h1>
+        <h1 className="mt-2 text-4xl font-semibold text-stone-950">
+          SustainOps
+        </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-stone-600">
           Plans are written by one role and approved by another. Choose a demo
           persona to see the workflow from that seat. All people, properties and
@@ -87,7 +89,9 @@ export function SignIn({
                   {ROLE_SUMMARIES[persona.role]}
                 </span>
                 <span className="mt-4 block text-sm font-semibold text-stone-900">
-                  {pendingId === persona.id ? "Signing in…" : "Continue as " + persona.name.split(" ")[0] + " →"}
+                  {pendingId === persona.id
+                    ? "Signing in…"
+                    : "Continue as " + persona.name.split(" ")[0] + " →"}
                 </span>
               </button>
             </li>

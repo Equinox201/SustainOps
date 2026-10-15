@@ -42,7 +42,9 @@ test.describe("grounded generation", () => {
     await expect(confidence).toContainText("Low");
 
     // It can still be saved: grounding is information, not a gate.
-    await toolbar(page).getByRole("button", { name: "Save Action Plan" }).click();
+    await toolbar(page)
+      .getByRole("button", { name: "Save Action Plan" })
+      .click();
     await expect(page.getByText("Action plan saved.")).toBeVisible();
   });
 
@@ -51,7 +53,9 @@ test.describe("grounded generation", () => {
   }) => {
     await signInAs(page, "Maya");
     await page.getByRole("button", { name: "Load Demo Cases" }).first().click();
-    await expect(page.getByText(/Supplier sustainability screening/)).toBeVisible();
+    await expect(
+      page.getByText(/Supplier sustainability screening/),
+    ).toBeVisible();
 
     await page
       .locator("article", { hasText: "Breakfast buffet croissant" })
@@ -70,7 +74,9 @@ test.describe("grounded generation", () => {
 
     // The retrieved excerpts are frozen into the plan and can be opened.
     await page.getByText(/S1 · Food Waste Measurement/).click();
-    await expect(page.getByText(/Weigh waste at the point it is generated/)).toBeVisible();
+    await expect(
+      page.getByText(/Weigh waste at the point it is generated/),
+    ).toBeVisible();
   });
 
   test("the knowledge catalogue shows approved and superseded documents", async ({
@@ -79,8 +85,12 @@ test.describe("grounded generation", () => {
     await signInAs(page, "Maya");
     await page.getByRole("button", { name: "Insights & Knowledge" }).click();
 
-    await expect(page.getByText(/approved documents · \d+ citeable sections/)).toBeVisible();
-    await expect(page.getByText("Energy and HVAC Operations SOP")).toBeVisible();
+    await expect(
+      page.getByText(/approved documents · \d+ citeable sections/),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Energy and HVAC Operations SOP"),
+    ).toBeVisible();
     await expect(page.getByText("superseded", { exact: true })).toBeVisible();
   });
 });

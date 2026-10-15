@@ -19,10 +19,7 @@ import { getPlanTitle, getReviewerStatus, hasCompleteCase } from "./plan-utils";
  */
 
 export type LifecycleEvent =
-  | "approve"
-  | "request_changes"
-  | "complete"
-  | "reset_approval";
+  "approve" | "request_changes" | "complete" | "reset_approval";
 
 export type LifecycleError =
   | "case_incomplete"
@@ -36,8 +33,7 @@ export type LifecycleError =
   | "self_approval_forbidden";
 
 export type LifecycleResult =
-  | { ok: true; plan: StoredActionPlan }
-  | { ok: false; error: LifecycleError };
+  { ok: true; plan: StoredActionPlan } | { ok: false; error: LifecycleError };
 
 export const lifecycleErrorMessages: Record<LifecycleError, string> = {
   case_incomplete:
@@ -107,6 +103,7 @@ export function planToDraft(plan: StoredActionPlan): EditorDraft {
     nextReviewDate: plan.nextReviewDate,
     readinessChecklist: plan.readinessChecklist,
     kpiProgress: plan.kpiProgress,
+    version: plan.version,
     approved: plan.approved,
     completed: plan.completed,
     reviewStatus: plan.reviewStatus,
@@ -174,6 +171,7 @@ export function createPlanFromContent(
         completed: false,
         generatedAt: generatedAt ?? now,
       }),
+      version: 1,
       approved: false,
       completed: false,
       reviewStatus: "none",
@@ -207,10 +205,7 @@ const FIELDS_LOCKED_AFTER_APPROVAL = [
 export function applyContentUpdate(
   existing: StoredActionPlan,
   content: PlanContent,
-  {
-    now,
-    generatedAt,
-  }: { now: string; generatedAt: string | null },
+  { now, generatedAt }: { now: string; generatedAt: string | null },
 ): LifecycleResult {
   if (!content.actionPlan) {
     return { ok: false, error: "not_generated" };

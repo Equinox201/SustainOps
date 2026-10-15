@@ -58,11 +58,23 @@ export async function createPlan(content: PlanContent) {
   );
 }
 
-export async function updatePlan(id: string, content: PlanContent) {
+export async function updatePlan(
+  id: string,
+  content: PlanContent,
+  expectedVersion: number,
+) {
   return pickPlan(
     await apiRequest(`/api/action-plans/${encodeURIComponent(id)}`, {
       method: "PUT",
-      body: content,
+      body: { ...content, expectedVersion },
+      schema: planResponse,
+    }),
+  );
+}
+
+export async function fetchPlan(id: string) {
+  return pickPlan(
+    await apiRequest(`/api/action-plans/${encodeURIComponent(id)}`, {
       schema: planResponse,
     }),
   );
@@ -71,17 +83,23 @@ export async function updatePlan(id: string, content: PlanContent) {
 export async function transitionPlan(
   id: string,
   event: LifecycleEvent,
-  options: { content?: PlanContent; comment?: string } = {},
+  options: {
+    expectedVersion: number;
+    content?: PlanContent;
+    comment?: string;
+  },
 ) {
   return pickPlan(
-    await apiRequest(
-      `/api/action-plans/${encodeURIComponent(id)}/transition`,
-      {
-        method: "POST",
-        body: { event, content: options.content, comment: options.comment },
-        schema: planResponse,
+    await apiRequest(`/api/action-plans/${encodeURIComponent(id)}/transition`, {
+      method: "POST",
+      body: {
+        event,
+        expectedVersion: options.expectedVersion,
+        content: options.content,
+        comment: options.comment,
       },
-    ),
+      schema: planResponse,
+    }),
   );
 }
 

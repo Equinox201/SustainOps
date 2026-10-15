@@ -85,7 +85,11 @@ describe("transitionPlan", () => {
   });
 
   it("refuses approval when no action plan has been generated", () => {
-    const result = transitionPlan(makePlan({ actionPlan: null }), "approve", NOW);
+    const result = transitionPlan(
+      makePlan({ actionPlan: null }),
+      "approve",
+      NOW,
+    );
 
     expect(result).toEqual({ ok: false, error: "not_generated" });
   });
@@ -102,7 +106,11 @@ describe("transitionPlan", () => {
       error: "not_approved",
     });
 
-    const result = transitionPlan(makePlan({ approved: true }), "complete", NOW);
+    const result = transitionPlan(
+      makePlan({ approved: true }),
+      "complete",
+      NOW,
+    );
 
     expect(result.ok && result.plan).toMatchObject({
       approved: true,

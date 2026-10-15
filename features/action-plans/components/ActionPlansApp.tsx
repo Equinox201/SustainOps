@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SessionUser } from "@/lib/schemas/action-plan";
 import { can } from "../domain/permissions";
+import { NEW_PLAN_SEGMENT, planPath } from "../domain/routes";
 import { useActionPlanEditor } from "../hooks/useActionPlanEditor";
 import { useActionPlans } from "../hooks/useActionPlans";
 import { useAuditEvents } from "../hooks/useAuditEvents";
+import { usePlanRoute } from "../hooks/usePlanRoute";
 import { useSession } from "../hooks/useSession";
 import type { MainView } from "../types";
 import { ActionPlanEditor } from "./ActionPlanEditor";
@@ -58,8 +60,109 @@ function Workspace({
     resetDemo,
   } = useActionPlans();
   const editor = useActionPlanEditor({ savePlan, transition });
+  const route = usePlanRoute();
+  const openId = route.routePlanId;
   const canViewInsights = can(user, "audit:view");
-  const { events: auditEvents, error: auditError } = useAuditEvents(
+
+  const editorPlanId = editor.draft?.id ?? null;
+  const hasDraft = editor.draft !== null;
+  const { isDirty } = editor;
+
+  // URL -> editor: the address decides which plan is open, so deep links,
+  // Back/Forward and refreshes all land in the right place.
+  useEffect(() => {
+    if (loadState !== "ready") {
+      return;
+    }
+
+    if (openId === null) {
+      if (hasDraft) {
+        editor.close();
+      }
+
+      return;
+    }
+
+    if (openId === NEW_PLAN_SEGMENT) {
+      if (!hasDraft && can(user, "plan:create")) {
+        editor.openNew();
+      }
+
+      return;
+    }
+
+    if (editorPlanId === openId) {
+      return;
+    }
+
+    const plan = plans.find((candidate) => candidate.id === openId);
+
+    if (!plan) {
+      return;
+    }
+
+    if (
+      isDirty &&
+      !window.confirm(
+        "You have unsaved changes. Leave this plan and discard them?",
+      )
+    ) {
+      // Stay put: restore the address of the plan that is still open.
+      route.navigate(planPath(editorPlanId));
+      return;
+    }
+
+    editor.openExisting(plan);
+    // The editor and route objects are recreated every render; only the
+    // values below should re-run this synchronisation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, loadState, plans, hasDraft, editorPlanId]);
+
+  // A new plan gets its real address as soon as it has an id.
+  useEffect(() => {
+    if (openId === NEW_PLAN_SEGMENT && editorPlanId) {
+      route.navigate(planPath(editorPlanId), "replace");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openId, editorPlanId]);
+
+  // Browser-level guard for reload / closing the tab with unsaved edits.
+  useEffect(() => {
+    if (!isDirty) {
+      return;
+    }
+
+    function warn(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+
+    window.addEventListener("beforeunload", warn);
+
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [isDirty]);
+
+  function leaveEditor() {
+    if (
+      isDirty &&
+      !window.confirm("You have unsaved changes. Leave and discard them?")
+    ) {
+      return;
+    }
+
+    route.navigate("/");
+  }
+
+  const planMissing =
+    loadState === "ready" &&
+    openId !== null &&
+    openId !== NEW_PLAN_SEGMENT &&
+    !hasDraft &&
+    !plans.some((plan) => plan.id === openId);
+  const {
+    events: auditEvents,
+    error: auditError,
+    isLoading: auditLoading,
+  } = useAuditEvents(
     canViewInsights && currentMainView === "insights" && !editor.draft,
   );
 
@@ -99,7 +202,15 @@ function Workspace({
   }
 
   async function handleApprove(planId: string) {
-    const result = await transition(planId, "approve");
+    const plan = plans.find((currentPlan) => currentPlan.id === planId);
+
+    if (!plan) {
+      return;
+    }
+
+    const result = await transition(planId, "approve", {
+      expectedVersion: plan.version,
+    });
     setNotice(result.ok ? null : result.message);
   }
 
@@ -115,7 +226,9 @@ function Workspace({
       return;
     }
 
-    const result = await transition(planId, "complete");
+    const result = await transition(planId, "complete", {
+      expectedVersion: plan.version,
+    });
     setNotice(result.ok ? null : result.message);
   }
 
@@ -131,7 +244,9 @@ function Workspace({
             successMessage={editor.successMessage}
             isGenerating={editor.isGenerating}
             isSaving={editor.isSaving}
-            onBack={editor.close}
+            hasConflict={editor.hasConflict}
+            onReloadLatest={editor.reloadLatest}
+            onBack={leaveEditor}
             onDraftChange={editor.updateDraft}
             onPanelChange={editor.setActivePanel}
             onGenerate={editor.generate}
@@ -151,7 +266,7 @@ function Workspace({
               canCreate={can(user, "plan:create")}
               canViewInsights={canViewInsights}
               onViewChange={setCurrentMainView}
-              onCreate={editor.openNew}
+              onCreate={() => route.navigate(planPath(null))}
               onSignOut={onSignOut}
             />
 
@@ -184,13 +299,37 @@ function Workspace({
               </div>
             ) : null}
 
-            {loadState === "ready" && currentMainView === "actionPlans" ? (
+            {planMissing ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm leading-6 text-amber-950"
+              >
+                <p className="font-semibold">Plan not found</p>
+                <p>
+                  This plan does not exist, was deleted by the nightly demo
+                  reset, or your role cannot see it.
+                </p>
+                <button
+                  className="mt-2 font-semibold underline underline-offset-4"
+                  type="button"
+                  onClick={() => route.navigate("/")}
+                >
+                  Back to action plans
+                </button>
+              </div>
+            ) : null}
+
+            {loadState === "ready" &&
+            currentMainView === "actionPlans" &&
+            !planMissing ? (
               <ActionPlanList
                 user={user}
                 plans={plans}
-                onCreate={editor.openNew}
+                filters={route.filters}
+                onFiltersChange={route.setFilters}
+                onCreate={() => route.navigate(planPath(null))}
                 onLoadDemoCases={handleLoadDemoCases}
-                onEdit={editor.openExisting}
+                onEdit={(plan) => route.navigate(planPath(plan.id))}
                 onDelete={handleDelete}
                 onApprove={handleApprove}
                 onComplete={handleComplete}
@@ -205,7 +344,11 @@ function Workspace({
                 {auditError ? (
                   <p className="text-sm text-rose-900">{auditError}</p>
                 ) : null}
-                <InsightsView plans={plans} auditEvents={auditEvents} />
+                <InsightsView
+                  plans={plans}
+                  auditEvents={auditEvents}
+                  auditLoading={auditLoading}
+                />
               </>
             ) : null}
           </>

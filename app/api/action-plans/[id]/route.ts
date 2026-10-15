@@ -1,4 +1,4 @@
-import { planContentSchema } from "@/lib/schemas/action-plan";
+import { planUpdateSchema } from "@/lib/schemas/action-plan";
 import { parseBody, json, withApi } from "@/lib/server/api";
 import {
   deletePlan,
@@ -20,8 +20,14 @@ export const GET = withApi<Params>(async (request, { params }) => {
 export const PUT = withApi<Params>(async (request, { requestId, params }) => {
   const db = getDb();
   const actor = await requirePrincipal(request, db);
-  const content = await parseBody(request, planContentSchema);
-  const plan = await updatePlan(db, params.id, content, { requestId, actor });
+  const { expectedVersion, ...content } = await parseBody(
+    request,
+    planUpdateSchema,
+  );
+  const plan = await updatePlan(db, params.id, content, expectedVersion, {
+    requestId,
+    actor,
+  });
 
   return json({ plan });
 });

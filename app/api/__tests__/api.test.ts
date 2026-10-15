@@ -269,7 +269,7 @@ describe("authorization and validation", () => {
       transitionRoute(
         request(`/api/action-plans/${plan.id}/transition`, {
           method: "POST",
-          body: { event: "approve" },
+          body: { event: "approve", expectedVersion: 1 },
           cookie,
         }),
         params,

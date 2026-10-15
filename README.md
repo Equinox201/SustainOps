@@ -48,6 +48,11 @@ and enforced on the server, inside the same transaction as the change.
 - Every action is attributed to a user in a per-plan history.
 - Out-of-scope plans answer `404`, so a department manager can't probe for other departments' plans.
 - Human review is always required; there is no auto-approve path.
+- Concurrent edits cannot silently overwrite each other. Every plan carries a
+  `version`; a save or transition must name the version it was based on, and a
+  stale one is refused with `409 stale_write` instead of winning. The editor
+  then offers to load the latest copy. The check runs inside the same
+  transaction, after the row lock.
 
 > **Demo sign-in.** There are no passwords: you pick one of five seeded,
 > fictional personas. Sessions are a signed HttpOnly cookie that carries only a
@@ -212,7 +217,7 @@ features/action-plans/
 
 | Table | Purpose |
 | --- | --- |
-| `action_plans` | The plan: case, AI output, owner and dates, readiness, KPI progress, approval state. A DB constraint guarantees a plan can't be completed without being approved. |
+| `action_plans` | The plan: case, AI output, owner and dates, readiness, KPI progress, approval state, and a `version` for optimistic concurrency. A DB constraint guarantees a plan can't be completed without being approved. |
 | `users` | Seeded fictional personas with a role (and a department for department managers). |
 | `audit_events` | Append-only history of what happened to which plan and who did it. Written in the same transaction as the change. |
 | `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use, outcome, the sources retrieved and how many citations were dropped. Also backs rate limiting. |
@@ -226,8 +231,8 @@ reachable through Supabase's public Data API; only the server reads and writes.
 | Method and path | Purpose |
 | --- | --- |
 | `GET/POST /api/action-plans` | List and create plans |
-| `GET/PUT/DELETE /api/action-plans/:id` | Read, edit (lock rules enforced) and delete |
-| `POST /api/action-plans/:id/transition` | Approve, request changes, complete or reset; optionally saves pending edits atomically |
+| `GET/PUT/DELETE /api/action-plans/:id` | Read, edit (lock rules enforced; body carries `expectedVersion`, stale writes answer `409`) and delete |
+| `POST /api/action-plans/:id/transition` | Approve, request changes, complete or reset; optionally saves pending edits atomically. Carries `expectedVersion` |
 | `GET /api/action-plans/:id/history` | The plan's attributed audit history |
 | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/personas` | Demo sign-in |
 | `POST /api/action-plans/generate` | Generate a plan (validated, rate-limited, timed out, recorded) |
@@ -256,6 +261,7 @@ Next, in order:
 - [x] Retrieval-grounded generation with verified source citations over synthetic SOPs
 - [x] Evaluation suite for grounding, citations and schema compliance (published at `/evals`)
 - [x] Deployment configuration, abuse limits and nightly reset (see `DEPLOYMENT.md`)
+- [x] Phase 2 / B1: stable plan URLs and list filters, optimistic concurrency, unsaved-change guard, accurate loading states
 
 ## Deployment
 
@@ -293,7 +299,7 @@ npm run evals     # the evaluation benchmark (see Evaluation)
 | Unit | Lifecycle state machine, permissions, UI capabilities, document parsing, embedder | Vitest |
 | Repository and retrieval | Transactions, rollbacks, lock rules, authorization matrix, audit accuracy; pgvector retrieval over the real corpus (approved-only, department scope, floor) | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
 | API and generation | 401 / 403 / 404 / 400 / 415, forged cookies, CSRF, rate limits; malformed, truncated, retried and over-citing model output | Route handlers and the generation service, fake model |
-| End-to-end | A plan moving through four roles in a real browser; grounded and ungrounded plans; role-gated UI; API refusals | Playwright against the production build |
+| End-to-end | A plan moving through four roles in a real browser; grounded and ungrounded plans; role-gated UI; API refusals; deep links, filters in the URL, and two sessions editing one plan | Playwright against the production build |
 
 The end-to-end suite needs no external services. `e2e/server.mjs` starts an
 in-memory Postgres exposed over TCP, a fake OpenAI Responses API, and the

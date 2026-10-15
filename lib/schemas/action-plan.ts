@@ -145,8 +145,16 @@ export const generateRequestSchema = z.strictObject({
   planId: z.string().max(100).nullable().optional(),
 });
 
+/** Which version of the plan the caller was looking at when they edited it. */
+export const expectedVersionSchema = z.number().int().min(1);
+
+export const planUpdateSchema = planContentSchema.extend({
+  expectedVersion: expectedVersionSchema,
+});
+
 export const transitionRequestSchema = z.strictObject({
   event: z.enum(["approve", "request_changes", "complete", "reset_approval"]),
+  expectedVersion: expectedVersionSchema,
   content: planContentSchema.optional(),
   comment: z.string().trim().min(1).max(1000).optional(),
 });
@@ -176,6 +184,7 @@ export const storedActionPlanSchema = planContentSchema.extend({
   id: z.string(),
   title: z.string(),
   governanceReview: governanceReviewSchema,
+  version: expectedVersionSchema,
   approved: z.boolean(),
   completed: z.boolean(),
   reviewStatus: z.enum(["none", "changes_requested"]),
