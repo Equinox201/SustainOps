@@ -203,15 +203,14 @@ export default function EvalsPage() {
               />
               <Metric
                 label="Untraceable figures"
-                hint="Percentages and temperatures in the plan that appear in neither the case nor the retrieved sources."
+                hint="Percentages and temperatures in the plan that appear in neither the case nor the retrieved sources. A screening proxy: flagged figures are usually the plan's own targets or arithmetic, so this does not fail a case."
                 value={generation.untraceableFigureRate}
-                tone="wantZero"
               />
               {generation.faithfulness ? (
                 <>
                   <Metric
-                    label="Judged faithful"
-                    hint={`Cited actions an LLM judge rated fully supported by their excerpts (${generation.faithfulness.actionsJudged} judged).`}
+                    label="Judged fully supported"
+                    hint={`Cited actions an LLM judge rated fully supported by their excerpts (${generation.faithfulness.actionsJudged} judged). Most of the rest follow the source and add operational detail.`}
                     value={generation.faithfulness.supported}
                   />
                   <Metric

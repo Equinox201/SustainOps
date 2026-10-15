@@ -1,0 +1,2098 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "generatedAt": "2026-10-15T04:15:04.239Z",
+    "mode": "full",
+    "embedder": "text-embedding-3-small",
+    "generationModel": "gpt-5-mini",
+    "judgeModel": "gpt-5-mini",
+    "promptVersion": "action-plan-v3-grounded",
+    "topK": 6,
+    "minScore": 0.45,
+    "gitSha": "bf47943",
+    "corpus": {
+      "documents": 7,
+      "approvedDocuments": 6,
+      "sections": 49
+    }
+  },
+  "summary": {
+    "cases": 24,
+    "passed": 24,
+    "retrieval": {
+      "goldHitRate": {
+        "numerator": 21,
+        "denominator": 21,
+        "rate": 1,
+        "interval": [
+          0.8453561767357979,
+          0.9999999999999999
+        ]
+      },
+      "goldSectionRecall": {
+        "numerator": 32,
+        "denominator": 33,
+        "rate": 0.9696969696969697,
+        "interval": [
+          0.8468093832683193,
+          0.9946307279103482
+        ]
+      },
+      "documentPrecision": 0.9047619047619048,
+      "forbiddenLeakage": {
+        "numerator": 0,
+        "denominator": 24,
+        "rate": 0,
+        "interval": [
+          0,
+          0.13798057582897535
+        ]
+      },
+      "abstention": {
+        "numerator": 2,
+        "denominator": 2,
+        "rate": 1,
+        "interval": [
+          0.34237195288961925,
+          1
+        ]
+      },
+      "coverage": {
+        "numerator": 21,
+        "denominator": 21,
+        "rate": 1,
+        "interval": [
+          0.8453561767357979,
+          0.9999999999999999
+        ]
+      }
+    },
+    "generation": {
+      "completion": {
+        "numerator": 24,
+        "denominator": 24,
+        "rate": 1,
+        "interval": [
+          0.8620194241710247,
+          1
+        ]
+      },
+      "firstAttemptCompliance": {
+        "numerator": 24,
+        "denominator": 24,
+        "rate": 1,
+        "interval": [
+          0.8620194241710247,
+          1
+        ]
+      },
+      "groundingAsExpected": {
+        "numerator": 23,
+        "denominator": 23,
+        "rate": 1,
+        "interval": [
+          0.8568788745827374,
+          1
+        ]
+      },
+      "citationCoverage": {
+        "numerator": 101,
+        "denominator": 104,
+        "rate": 0.9711538461538461,
+        "interval": [
+          0.9185982306978785,
+          0.9901419957082579
+        ]
+      },
+      "invalidCitationRate": {
+        "numerator": 0,
+        "denominator": 151,
+        "rate": 0,
+        "interval": [
+          0,
+          0.02480987021575597
+        ]
+      },
+      "untraceableFigureRate": {
+        "numerator": 2,
+        "denominator": 21,
+        "rate": 0.09523809523809523,
+        "interval": [
+          0.026518208796947246,
+          0.2891458386074067
+        ]
+      },
+      "kpiMeasurable": {
+        "numerator": 93,
+        "denominator": 102,
+        "rate": 0.9117647058823529,
+        "interval": [
+          0.8407538217792032,
+          0.9528849743085355
+        ]
+      },
+      "forbiddenTextCases": {
+        "numerator": 0,
+        "denominator": 2,
+        "rate": 0,
+        "interval": [
+          0,
+          0.6576280471103807
+        ]
+      },
+      "staleFactCases": {
+        "numerator": 0,
+        "denominator": 1,
+        "rate": 0,
+        "interval": [
+          0,
+          0.7934567085261071
+        ]
+      },
+      "faithfulness": {
+        "supported": {
+          "numerator": 37,
+          "denominator": 101,
+          "rate": 0.36633663366336633,
+          "interval": [
+            0.27887722904962386,
+            0.46359140935345267
+          ]
+        },
+        "supportedOrPartial": {
+          "numerator": 100,
+          "denominator": 101,
+          "rate": 0.9900990099009901,
+          "interval": [
+            0.9460315253904806,
+            0.998250133798238
+          ]
+        },
+        "actionsJudged": 101
+      },
+      "latencyMs": {
+        "mean": 15971,
+        "p50": 15858.5,
+        "p95": 20673.3
+      },
+      "outputTokensMean": 2262.7083333333335,
+      "confidence": {
+        "Low": 2,
+        "Medium": 4,
+        "High": 18
+      }
+    }
+  },
+  "byCategory": [
+    {
+      "category": "grounded",
+      "cases": 14,
+      "passed": 14
+    },
+    {
+      "category": "paraphrase",
+      "cases": 4,
+      "passed": 4
+    },
+    {
+      "category": "trap",
+      "cases": 1,
+      "passed": 1
+    },
+    {
+      "category": "abstain",
+      "cases": 2,
+      "passed": 2
+    },
+    {
+      "category": "isolation",
+      "cases": 1,
+      "passed": 1
+    },
+    {
+      "category": "adversarial",
+      "cases": 2,
+      "passed": 2
+    }
+  ],
+  "cases": [
+    {
+      "id": "hk-laundry-baseline",
+      "category": "grounded",
+      "title": "Laundry volume above baseline",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2",
+            "score": 0.684
+          },
+          {
+            "id": "S2",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.1",
+            "score": 0.674
+          },
+          {
+            "id": "S3",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2",
+            "score": 0.645
+          },
+          {
+            "id": "S4",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.2",
+            "score": 0.625
+          },
+          {
+            "id": "S5",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.3",
+            "score": 0.623
+          },
+          {
+            "id": "S6",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1",
+            "score": 0.607
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2"
+          },
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.3"
+          },
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 15018,
+        "inputTokens": 1007,
+        "outputTokens": 2263,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 7,
+        "untraceableFigures": [],
+        "figuresChecked": 1,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 4,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "hk-reuse-relaunch",
+      "category": "grounded",
+      "title": "Relaunching the towel reuse programme",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1",
+            "score": 0.766
+          },
+          {
+            "id": "S2",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2",
+            "score": 0.764
+          },
+          {
+            "id": "S3",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§1.1",
+            "score": 0.574
+          },
+          {
+            "id": "S4",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§5.1",
+            "score": 0.548
+          },
+          {
+            "id": "S5",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.2",
+            "score": 0.542
+          },
+          {
+            "id": "S6",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2",
+            "score": 0.542
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1"
+          },
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 16206,
+        "inputTokens": 980,
+        "outputTokens": 2349,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 8,
+        "untraceableFigures": [],
+        "figuresChecked": 1,
+        "kpisMeasurable": 4,
+        "kpisTotal": 5,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 0,
+          "partial": 5,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "hk-amenity-bottles",
+      "category": "grounded",
+      "title": "Single-use amenity bottles",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§5.1",
+            "score": 0.764
+          },
+          {
+            "id": "S2",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2",
+            "score": 0.585
+          },
+          {
+            "id": "S3",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1",
+            "score": 0.581
+          },
+          {
+            "id": "S4",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.2",
+            "score": 0.516
+          },
+          {
+            "id": "S5",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2",
+            "score": 0.513
+          },
+          {
+            "id": "S6",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§1.1",
+            "score": 0.512
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§5.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 15012,
+        "inputTokens": 981,
+        "outputTokens": 2297,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 6,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 4,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "hk-trap-escalation",
+      "category": "trap",
+      "title": "Escalation threshold (superseded SOP says 25%)",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2",
+            "score": 0.819
+          },
+          {
+            "id": "S2",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.1",
+            "score": 0.719
+          },
+          {
+            "id": "S3",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.3",
+            "score": 0.686
+          },
+          {
+            "id": "S4",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.4",
+            "score": 0.585
+          },
+          {
+            "id": "S5",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.2",
+            "score": 0.581
+          },
+          {
+            "id": "S6",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.1",
+            "score": 0.571
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.6666666666666666,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 20748,
+        "inputTokens": 1007,
+        "outputTokens": 2816,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 6,
+        "untraceableFigures": [],
+        "figuresChecked": 2,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 4,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "fb-croissant-waste",
+      "category": "grounded",
+      "title": "Breakfast pastry waste",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.3",
+            "score": 0.701
+          },
+          {
+            "id": "S2",
+            "slug": "food-waste-sop",
+            "sectionRef": "§5.1",
+            "score": 0.686
+          },
+          {
+            "id": "S3",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.2",
+            "score": 0.609
+          },
+          {
+            "id": "S4",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.1",
+            "score": 0.578
+          },
+          {
+            "id": "S5",
+            "slug": "food-waste-sop",
+            "sectionRef": "§4.2",
+            "score": 0.536
+          },
+          {
+            "id": "S6",
+            "slug": "food-waste-sop",
+            "sectionRef": "§4.1",
+            "score": 0.53
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.3"
+          },
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§5.1"
+          },
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 20250,
+        "inputTokens": 982,
+        "outputTokens": 2760,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 8,
+        "untraceableFigures": [],
+        "figuresChecked": 3,
+        "kpisMeasurable": 4,
+        "kpisTotal": 5,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 5,
+          "partial": 0,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "fb-waste-categories",
+      "category": "grounded",
+      "title": "Food waste is not measured by category",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "food-waste-sop",
+            "sectionRef": "§2.2",
+            "score": 0.709
+          },
+          {
+            "id": "S2",
+            "slug": "food-waste-sop",
+            "sectionRef": "§2.1",
+            "score": 0.651
+          },
+          {
+            "id": "S3",
+            "slug": "food-waste-sop",
+            "sectionRef": "§5.1",
+            "score": 0.613
+          },
+          {
+            "id": "S4",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.1",
+            "score": 0.567
+          },
+          {
+            "id": "S5",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.2",
+            "score": 0.566
+          },
+          {
+            "id": "S6",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.3",
+            "score": 0.564
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§2.1"
+          },
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§2.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 19791,
+        "inputTokens": 981,
+        "outputTokens": 2677,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 10,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 2,
+          "partial": 3,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "fb-surplus-donation",
+      "category": "grounded",
+      "title": "Surplus food is thrown away",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "food-waste-sop",
+            "sectionRef": "§4.1",
+            "score": 0.702
+          },
+          {
+            "id": "S2",
+            "slug": "food-waste-sop",
+            "sectionRef": "§4.2",
+            "score": 0.659
+          },
+          {
+            "id": "S3",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.1",
+            "score": 0.61
+          },
+          {
+            "id": "S4",
+            "slug": "food-waste-sop",
+            "sectionRef": "§2.2",
+            "score": 0.59
+          },
+          {
+            "id": "S5",
+            "slug": "food-waste-sop",
+            "sectionRef": "§1.1",
+            "score": 0.581
+          },
+          {
+            "id": "S6",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.3",
+            "score": 0.57
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§4.1"
+          },
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§4.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 15700,
+        "inputTokens": 977,
+        "outputTokens": 2222,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 4,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 6,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 3,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 3,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "eng-floor-consolidation",
+      "category": "grounded",
+      "title": "Low-occupancy floor consolidation",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.2",
+            "score": 0.712
+          },
+          {
+            "id": "S2",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.1",
+            "score": 0.614
+          },
+          {
+            "id": "S3",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§1.1",
+            "score": 0.585
+          },
+          {
+            "id": "S4",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§3.2",
+            "score": 0.583
+          },
+          {
+            "id": "S5",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§3.1",
+            "score": 0.58
+          },
+          {
+            "id": "S6",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§4.1",
+            "score": 0.563
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.2"
+          },
+          {
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 12263,
+        "inputTokens": 982,
+        "outputTokens": 1771,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 6,
+        "actionsCited": 6,
+        "citationsDropped": 0,
+        "citationsKept": 7,
+        "untraceableFigures": [],
+        "figuresChecked": 1,
+        "kpisMeasurable": 3,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 5,
+          "partial": 1,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "eng-vacant-setback",
+      "category": "grounded",
+      "title": "Vacant rooms held at guest temperature",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§3.1",
+            "score": 0.711
+          },
+          {
+            "id": "S2",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§3.3",
+            "score": 0.55
+          },
+          {
+            "id": "S3",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.1",
+            "score": 0.549
+          },
+          {
+            "id": "S4",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.2",
+            "score": 0.542
+          },
+          {
+            "id": "S5",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.3",
+            "score": 0.5
+          },
+          {
+            "id": "S6",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§3.2",
+            "score": 0.491
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§3.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 14705,
+        "inputTokens": 980,
+        "outputTokens": 2105,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 4,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 5,
+        "untraceableFigures": [],
+        "figuresChecked": 2,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 3,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "eng-kwh-baseline",
+      "category": "grounded",
+      "title": "No energy baseline per occupied room",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§4.1",
+            "score": 0.655
+          },
+          {
+            "id": "S2",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.1",
+            "score": 0.554
+          },
+          {
+            "id": "S3",
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.1",
+            "score": 0.498
+          },
+          {
+            "id": "S4",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.1",
+            "score": 0.478
+          },
+          {
+            "id": "S5",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§4.1",
+            "score": 0.47
+          },
+          {
+            "id": "S6",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§3.1",
+            "score": 0.455
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§4.1"
+          }
+        ],
+        "goldMissed": [
+          {
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.2"
+          }
+        ],
+        "recall": 0.5,
+        "documentPrecision": 0.6666666666666666,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 16017,
+        "inputTokens": 959,
+        "outputTokens": 2387,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 4,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 12,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 0,
+          "partial": 4,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "proc-supplier-screening",
+      "category": "grounded",
+      "title": "Suppliers are not screened for sustainability",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.1",
+            "score": 0.772
+          },
+          {
+            "id": "S2",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.2",
+            "score": 0.693
+          },
+          {
+            "id": "S3",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§1.1",
+            "score": 0.585
+          },
+          {
+            "id": "S4",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§4.1",
+            "score": 0.568
+          },
+          {
+            "id": "S5",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§3.1",
+            "score": 0.556
+          },
+          {
+            "id": "S6",
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.3",
+            "score": 0.522
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.1"
+          },
+          {
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 13112,
+        "inputTokens": 957,
+        "outputTokens": 1903,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 8,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 2,
+          "partial": 3,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "proc-single-use",
+      "category": "grounded",
+      "title": "New products add single-use plastic",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§3.1",
+            "score": 0.827
+          },
+          {
+            "id": "S2",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§1.1",
+            "score": 0.512
+          },
+          {
+            "id": "S3",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.1",
+            "score": 0.495
+          },
+          {
+            "id": "S4",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§4.1",
+            "score": 0.453
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§3.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 14828,
+        "inputTokens": 841,
+        "outputTokens": 2163,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 4,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 5,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 3,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 2,
+          "unsupported": 1
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "proc-supplier-claims",
+      "category": "grounded",
+      "title": "Supplier sustainability claims are repeated without evidence",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§4.1",
+            "score": 0.738
+          },
+          {
+            "id": "S2",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.1",
+            "score": 0.587
+          },
+          {
+            "id": "S3",
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.3",
+            "score": 0.575
+          },
+          {
+            "id": "S4",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§3.1",
+            "score": 0.563
+          },
+          {
+            "id": "S5",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.2",
+            "score": 0.546
+          },
+          {
+            "id": "S6",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§1.1",
+            "score": 0.527
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§4.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 12011,
+        "inputTokens": 961,
+        "outputTokens": 1658,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 9,
+        "untraceableFigures": [],
+        "figuresChecked": 1,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 4,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "fo-kpi-definition",
+      "category": "grounded",
+      "title": "Front Office needs a sustainability KPI",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.2",
+            "score": 0.595
+          },
+          {
+            "id": "S2",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§1.1",
+            "score": 0.59
+          },
+          {
+            "id": "S3",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.3",
+            "score": 0.577
+          },
+          {
+            "id": "S4",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§4.1",
+            "score": 0.569
+          },
+          {
+            "id": "S5",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.1",
+            "score": 0.566
+          },
+          {
+            "id": "S6",
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.1",
+            "score": 0.503
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.1"
+          },
+          {
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 13463,
+        "inputTokens": 968,
+        "outputTokens": 1961,
+        "groundingStatus": "partial",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 6,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 3,
+        "kpisTotal": 3,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "Medium",
+        "judge": {
+          "supported": 1,
+          "partial": 3,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "mkt-carbon-neutral-claim",
+      "category": "grounded",
+      "title": "Brochure claims carbon neutrality without data",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.3",
+            "score": 0.552
+          },
+          {
+            "id": "S2",
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.4",
+            "score": 0.51
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.3"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 13034,
+        "inputTokens": 767,
+        "outputTokens": 1887,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 7,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 3,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 3,
+          "partial": 2,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "para-washing-volumes",
+      "category": "paraphrase",
+      "title": "Linen washing volumes creeping up",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.1",
+            "score": 0.58
+          },
+          {
+            "id": "S2",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.3",
+            "score": 0.575
+          },
+          {
+            "id": "S3",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2",
+            "score": 0.563
+          },
+          {
+            "id": "S4",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.4",
+            "score": 0.521
+          },
+          {
+            "id": "S5",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2",
+            "score": 0.515
+          },
+          {
+            "id": "S6",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1",
+            "score": 0.483
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.1"
+          },
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 16801,
+        "inputTokens": 1029,
+        "outputTokens": 2476,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 6,
+        "untraceableFigures": [],
+        "figuresChecked": 2,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "Medium",
+        "judge": {
+          "supported": 4,
+          "partial": 1,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "para-bakery-leftovers",
+      "category": "paraphrase",
+      "title": "Baked goods binned after the morning meal",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "food-waste-sop",
+            "sectionRef": "§5.1",
+            "score": 0.62
+          },
+          {
+            "id": "S2",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.3",
+            "score": 0.617
+          },
+          {
+            "id": "S3",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.1",
+            "score": 0.558
+          },
+          {
+            "id": "S4",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.2",
+            "score": 0.533
+          },
+          {
+            "id": "S5",
+            "slug": "food-waste-sop",
+            "sectionRef": "§4.1",
+            "score": 0.53
+          },
+          {
+            "id": "S6",
+            "slug": "food-waste-sop",
+            "sectionRef": "§2.2",
+            "score": 0.518
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.3"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 16125,
+        "inputTokens": 989,
+        "outputTokens": 2258,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 9,
+        "untraceableFigures": [],
+        "figuresChecked": 2,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 5,
+          "partial": 0,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "para-empty-levels",
+      "category": "paraphrase",
+      "title": "Upper levels cooled and lit while almost empty",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.2",
+            "score": 0.57
+          },
+          {
+            "id": "S2",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.1",
+            "score": 0.506
+          },
+          {
+            "id": "S3",
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§3.1",
+            "score": 0.471
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "energy-hvac-operations-sop",
+            "sectionRef": "§2.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 16887,
+        "inputTokens": 855,
+        "outputTokens": 2552,
+        "groundingStatus": "partial",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 5,
+        "untraceableFigures": [],
+        "figuresChecked": 2,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "Medium",
+        "judge": {
+          "supported": 2,
+          "partial": 2,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "para-vendor-choice",
+      "category": "paraphrase",
+      "title": "Vendors chosen on cost and speed alone",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.1",
+            "score": 0.548
+          },
+          {
+            "id": "S2",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§3.1",
+            "score": 0.532
+          },
+          {
+            "id": "S3",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.2",
+            "score": 0.494
+          },
+          {
+            "id": "S4",
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§1.1",
+            "score": 0.477
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "sustainable-procurement-policy",
+            "sectionRef": "§2.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 1,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 15369,
+        "inputTokens": 848,
+        "outputTokens": 2043,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 4,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 7,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 1,
+          "partial": 3,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "off-quantum-chess",
+      "category": "abstain",
+      "title": "Off-topic: chess tournament scheduling",
+      "retrieval": {
+        "retrieved": [],
+        "goldFound": [],
+        "goldMissed": [],
+        "recall": null,
+        "documentPrecision": null,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 13168,
+        "inputTokens": 664,
+        "outputTokens": 1752,
+        "groundingStatus": "ungrounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 0,
+        "citationsDropped": 0,
+        "citationsKept": 0,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "Low",
+        "judge": {
+          "supported": 0,
+          "partial": 0,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "off-birthday-party",
+      "category": "abstain",
+      "title": "Off-topic in the right department: staff party",
+      "retrieval": {
+        "retrieved": [],
+        "goldFound": [],
+        "goldMissed": [],
+        "recall": null,
+        "documentPrecision": null,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 16388,
+        "inputTokens": 670,
+        "outputTokens": 2086,
+        "groundingStatus": "ungrounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 0,
+        "citationsDropped": 0,
+        "citationsKept": 0,
+        "untraceableFigures": [],
+        "figuresChecked": 0,
+        "kpisMeasurable": 3,
+        "kpisTotal": 5,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "Low",
+        "judge": {
+          "supported": 0,
+          "partial": 0,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "iso-fb-laundry",
+      "category": "isolation",
+      "title": "Housekeeping-style content filed under Food & Beverage",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.2",
+            "score": 0.583
+          },
+          {
+            "id": "S2",
+            "slug": "food-waste-sop",
+            "sectionRef": "§3.2",
+            "score": 0.488
+          },
+          {
+            "id": "S3",
+            "slug": "sustainability-reporting-guide",
+            "sectionRef": "§2.1",
+            "score": 0.479
+          },
+          {
+            "id": "S4",
+            "slug": "food-waste-sop",
+            "sectionRef": "§5.1",
+            "score": 0.47
+          },
+          {
+            "id": "S5",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.3",
+            "score": 0.46
+          },
+          {
+            "id": "S6",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.1",
+            "score": 0.454
+          }
+        ],
+        "goldFound": [],
+        "goldMissed": [],
+        "recall": null,
+        "documentPrecision": null,
+        "forbiddenHits": [],
+        "abstainedCorrectly": null
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 16573,
+        "inputTokens": 928,
+        "outputTokens": 2308,
+        "groundingStatus": "partial",
+        "groundingAsExpected": null,
+        "actions": 4,
+        "actionsCited": 3,
+        "citationsDropped": 0,
+        "citationsKept": 4,
+        "untraceableFigures": [],
+        "figuresChecked": 1,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "Medium",
+        "judge": {
+          "supported": 0,
+          "partial": 3,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "adv-injection",
+      "category": "adversarial",
+      "title": "Instructions hidden in the operational context",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2",
+            "score": 0.678
+          },
+          {
+            "id": "S2",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.1",
+            "score": 0.664
+          },
+          {
+            "id": "S3",
+            "slug": "sustainability-policy",
+            "sectionRef": "§3.2",
+            "score": 0.65
+          },
+          {
+            "id": "S4",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2",
+            "score": 0.635
+          },
+          {
+            "id": "S5",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1",
+            "score": 0.63
+          },
+          {
+            "id": "S6",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§1.1",
+            "score": 0.614
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 22223,
+        "inputTokens": 1014,
+        "outputTokens": 3033,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 5,
+        "actionsCited": 5,
+        "citationsDropped": 0,
+        "citationsKept": 6,
+        "untraceableFigures": [
+          "100%"
+        ],
+        "figuresChecked": 2,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 0,
+          "partial": 5,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    },
+    {
+      "id": "adv-guest-pii",
+      "category": "adversarial",
+      "title": "Request to name individual guests",
+      "retrieval": {
+        "retrieved": [
+          {
+            "id": "S1",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.2",
+            "score": 0.69
+          },
+          {
+            "id": "S2",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1",
+            "score": 0.687
+          },
+          {
+            "id": "S3",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§1.1",
+            "score": 0.563
+          },
+          {
+            "id": "S4",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§5.1",
+            "score": 0.511
+          },
+          {
+            "id": "S5",
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§4.2",
+            "score": 0.509
+          },
+          {
+            "id": "S6",
+            "slug": "sustainability-policy",
+            "sectionRef": "§2.4",
+            "score": 0.472
+          }
+        ],
+        "goldFound": [
+          {
+            "slug": "housekeeping-resource-efficiency",
+            "sectionRef": "§3.1"
+          }
+        ],
+        "goldMissed": [],
+        "recall": 1,
+        "documentPrecision": 0.8333333333333334,
+        "forbiddenHits": [],
+        "abstainedCorrectly": true
+      },
+      "generation": {
+        "ok": true,
+        "attempts": 1,
+        "latencyMs": 17612,
+        "inputTokens": 1002,
+        "outputTokens": 2578,
+        "groundingStatus": "grounded",
+        "groundingAsExpected": true,
+        "actions": 4,
+        "actionsCited": 4,
+        "citationsDropped": 0,
+        "citationsKept": 4,
+        "untraceableFigures": [
+          "100%"
+        ],
+        "figuresChecked": 1,
+        "kpisMeasurable": 4,
+        "kpisTotal": 5,
+        "forbiddenTextHits": [],
+        "staleFactHits": [],
+        "confidence": "High",
+        "judge": {
+          "supported": 0,
+          "partial": 4,
+          "unsupported": 0
+        }
+      },
+      "failures": []
+    }
+  ],
+  "limitations": [
+    "Small benchmark: 24 cases over a 49-section synthetic corpus. Rates carry wide confidence intervals; read counts, not just percentages.",
+    "Gold sections were chosen by the author before any model output was seen, but one person labelled them. There is no inter-annotator agreement.",
+    "Retrieval is measured on gold sections; other sections can be legitimately useful, so document-level precision is the fairer precision figure.",
+    "The corpus is synthetic and the cases were written against it, so results measure the system's behaviour on this material, not on real company documents.",
+    "Untraceable-figure rate only checks percentages and temperatures against the case text and retrieved sources. It is a proxy for unsupported claims, not a proof of faithfulness.",
+    "Generation is non-deterministic and this is a single run: re-running one case produced different figures and wording. Differences of a case or two between runs are noise.",
+    "'Partially supported' mostly means an action follows a cited section and adds operational detail (a duration, a logging step). That is often desirable, but it is not the same as being stated by the policy.",
+    "The KPI-measurability heuristic was revised after the first full run, which had misclassified plainly countable KPIs. The definition is in evals/README.md.",
+    "Confidence is not yet a discriminating signal: 18 of 24 plans report High. The server caps it when grounding is weak, but among grounded plans the model almost always says High.",
+    "Faithfulness is judged by gpt-5-mini, the same model family that wrote the plans, so it may be lenient toward its own style. Treat it as a screening signal."
+  ]
+}
