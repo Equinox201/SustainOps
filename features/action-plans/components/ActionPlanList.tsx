@@ -1,8 +1,11 @@
+import type { SessionUser } from "@/lib/schemas/action-plan";
 import type { StoredActionPlan } from "@/lib/types";
+import { can } from "../domain/permissions";
 import { ActionPlanCard } from "./ActionPlanCard";
 import { OperationalOverview } from "./OperationalOverview";
 
 type ActionPlanListProps = {
+  user: SessionUser;
   plans: StoredActionPlan[];
   onCreate: () => void;
   onLoadDemoCases: () => void;
@@ -13,6 +16,7 @@ type ActionPlanListProps = {
 };
 
 export function ActionPlanList({
+  user,
   plans,
   onCreate,
   onLoadDemoCases,
@@ -21,6 +25,8 @@ export function ActionPlanList({
   onApprove,
   onComplete,
 }: ActionPlanListProps) {
+  const canCreate = can(user, "plan:create");
+
   return (
     <section className="space-y-4">
       <div>
@@ -40,13 +46,15 @@ export function ActionPlanList({
           an audit log.
         </p>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-          <button
-            className="min-h-10 rounded-lg border border-stone-900 bg-stone-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-stone-800"
-            type="button"
-            onClick={onLoadDemoCases}
-          >
-            Load Demo Cases
-          </button>
+          {canCreate ? (
+            <button
+              className="min-h-10 rounded-lg border border-stone-900 bg-stone-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-stone-800"
+              type="button"
+              onClick={onLoadDemoCases}
+            >
+              Load Demo Cases
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -56,10 +64,13 @@ export function ActionPlanList({
             No action plans yet.
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-stone-600">
-            Create your first sustainability action plan or load demo cases to
-            explore the workflow.
+            {canCreate
+              ? "Create your first sustainability action plan or load demo cases to explore the workflow."
+              : "Plans appear here once a Sustainability Manager creates them."}
           </p>
-          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+          <div
+            className={`mt-6 flex-col justify-center gap-3 sm:flex-row ${canCreate ? "flex" : "hidden"}`}
+          >
             <button
               className="min-h-12 rounded-lg bg-stone-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800"
               type="button"
@@ -82,6 +93,9 @@ export function ActionPlanList({
             <ActionPlanCard
               key={plan.id}
               plan={plan}
+              canApprove={can(user, "plan:approve", plan)}
+              canComplete={can(user, "plan:complete", plan)}
+              canDelete={can(user, "plan:delete", plan)}
               onEdit={onEdit}
               onDelete={onDelete}
               onApprove={onApprove}

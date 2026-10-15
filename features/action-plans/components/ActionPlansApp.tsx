@@ -1,16 +1,47 @@
 "use client";
 
 import { useState } from "react";
+import type { SessionUser } from "@/lib/schemas/action-plan";
+import { can } from "../domain/permissions";
 import { useActionPlanEditor } from "../hooks/useActionPlanEditor";
 import { useActionPlans } from "../hooks/useActionPlans";
 import { useAuditEvents } from "../hooks/useAuditEvents";
+import { useSession } from "../hooks/useSession";
 import type { MainView } from "../types";
 import { ActionPlanEditor } from "./ActionPlanEditor";
 import { ActionPlanList } from "./ActionPlanList";
 import { AppHeader } from "./AppHeader";
 import { InsightsView } from "./InsightsView";
+import { SignIn } from "./SignIn";
 
 export default function ActionPlansApp() {
+  const { state, signIn, signOut } = useSession();
+
+  if (state.status === "loading") {
+    return (
+      <main className="min-h-screen bg-[#f7f3ec] px-5 py-10 text-sm text-stone-600">
+        Loading…
+      </main>
+    );
+  }
+
+  if (state.status === "signed_out") {
+    return <SignIn error={state.error} onSignIn={signIn} />;
+  }
+
+  // Keyed by user so switching persona starts from a clean slate.
+  return (
+    <Workspace key={state.user.id} user={state.user} onSignOut={signOut} />
+  );
+}
+
+function Workspace({
+  user,
+  onSignOut,
+}: {
+  user: SessionUser;
+  onSignOut: () => void;
+}) {
   const [currentMainView, setCurrentMainView] =
     useState<MainView>("actionPlans");
   const [notice, setNotice] = useState<string | null>(null);
@@ -25,8 +56,9 @@ export default function ActionPlansApp() {
     loadDemoPlans,
   } = useActionPlans();
   const editor = useActionPlanEditor({ savePlan, transition });
+  const canViewInsights = can(user, "audit:view");
   const { events: auditEvents, error: auditError } = useAuditEvents(
-    currentMainView === "insights" && !editor.draft,
+    canViewInsights && currentMainView === "insights" && !editor.draft,
   );
 
   async function handleDelete(planId: string) {
@@ -77,6 +109,7 @@ export default function ActionPlansApp() {
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-6 sm:px-8 lg:px-10 lg:py-8">
         {editor.draft ? (
           <ActionPlanEditor
+            user={user}
             draft={editor.draft}
             activePanel={editor.activePanel}
             errorMessage={editor.errorMessage}
@@ -91,13 +124,18 @@ export default function ActionPlansApp() {
             onApprove={editor.approve}
             onComplete={editor.complete}
             onResetApproval={editor.resetApproval}
+            onRequestChanges={editor.requestChanges}
           />
         ) : (
           <>
             <AppHeader
+              user={user}
               currentMainView={currentMainView}
+              canCreate={can(user, "plan:create")}
+              canViewInsights={canViewInsights}
               onViewChange={setCurrentMainView}
               onCreate={editor.openNew}
+              onSignOut={onSignOut}
             />
 
             {notice ? (
@@ -131,6 +169,7 @@ export default function ActionPlansApp() {
 
             {loadState === "ready" && currentMainView === "actionPlans" ? (
               <ActionPlanList
+                user={user}
                 plans={plans}
                 onCreate={editor.openNew}
                 onLoadDemoCases={handleLoadDemoCases}
@@ -141,7 +180,9 @@ export default function ActionPlansApp() {
               />
             ) : null}
 
-            {loadState === "ready" && currentMainView === "insights" ? (
+            {loadState === "ready" &&
+            currentMainView === "insights" &&
+            canViewInsights ? (
               <>
                 {auditError ? (
                   <p className="text-sm text-rose-900">{auditError}</p>

@@ -56,14 +56,14 @@ export async function updatePlan(id: string, content: PlanContent) {
 export async function transitionPlan(
   id: string,
   event: LifecycleEvent,
-  content?: PlanContent,
+  options: { content?: PlanContent; comment?: string } = {},
 ) {
   return pickPlan(
     await apiRequest(
       `/api/action-plans/${encodeURIComponent(id)}/transition`,
       {
         method: "POST",
-        body: { event, content },
+        body: { event, content: options.content, comment: options.comment },
         schema: planResponse,
       },
     ),
@@ -95,20 +95,27 @@ export async function generateActionPlan(
   });
 }
 
+export async function fetchPlanHistory(id: string) {
+  const result = await apiRequest(
+    `/api/action-plans/${encodeURIComponent(id)}/history`,
+    { schema: eventsResponse },
+  );
+
+  return result.ok
+    ? { ok: true as const, data: result.data.events.map(toAuditEvent) }
+    : result;
+}
+
+function toAuditEvent(event: z.infer<typeof auditEventSchema>): AuditEvent {
+  return { ...event, eventType: event.eventType as AuditEventType };
+}
+
 export async function fetchAuditEvents() {
   const result = await apiRequest("/api/audit-events", {
     schema: eventsResponse,
   });
 
   return result.ok
-    ? {
-        ok: true as const,
-        data: result.data.events.map(
-          (event): AuditEvent => ({
-            ...event,
-            eventType: event.eventType as AuditEventType,
-          }),
-        ),
-      }
+    ? { ok: true as const, data: result.data.events.map(toAuditEvent) }
     : result;
 }

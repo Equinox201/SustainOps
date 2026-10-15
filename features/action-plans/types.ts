@@ -33,9 +33,10 @@ export type EditorDraft = {
   approvedBy: StoredActionPlan["approvedBy"];
   approvedAt: string | null;
   createdAt: string | null;
+  updatedAt: string | null;
 };
 
-export type EditorPanel = "case" | "plan" | "kpi" | "notes";
+export type EditorPanel = "case" | "plan" | "kpi" | "notes" | "history";
 
 export type MainView = "actionPlans" | "insights";
 

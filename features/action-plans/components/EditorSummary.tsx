@@ -1,31 +1,30 @@
+import type { EditorCapabilities } from "../domain/capabilities";
 import { getPlanTitle } from "../domain/plan-utils";
 import type { EditorDraft } from "../types";
-import { primaryButtonClassName, secondaryButtonClassName } from "./form-styles";
+import { primaryButtonClassName } from "./form-styles";
 import { LockedNotice } from "./LockedNotice";
 import { PlanStateBadges } from "./PlanStateBadges";
+import { ReviewPanel } from "./ReviewPanel";
 
 export function EditorSummary({
   draft,
+  capabilities,
   errorMessage,
   successMessage,
   isGenerating,
   isSaving,
   onGenerate,
-  onApprove,
-  onComplete,
+  onRequestChanges,
 }: {
   draft: EditorDraft;
+  capabilities: EditorCapabilities;
   errorMessage: string | null;
   successMessage: string | null;
   isGenerating: boolean;
   isSaving: boolean;
   onGenerate: () => void;
-  onApprove: () => void;
-  onComplete: () => void;
+  onRequestChanges: (comment: string) => void;
 }) {
-  const canApprove = Boolean(draft.actionPlan) && !draft.approved;
-  const canComplete = draft.approved && !draft.completed;
-
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-sm sm:p-7">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
@@ -43,7 +42,10 @@ export function EditorSummary({
       </div>
 
       {errorMessage ? (
-        <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-900">
+        <div
+          role="alert"
+          className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-900"
+        >
           {errorMessage}
         </div>
       ) : null}
@@ -56,13 +58,9 @@ export function EditorSummary({
 
       <div className="mt-5 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700">
         <p>AI recommendations require human review before implementation.</p>
-        <p>Approval is gated by operational readiness.</p>
+        <p>Approval is gated by operational readiness and given by a reviewer.</p>
         <p>
           AI recommendations must be assigned to an owner before implementation.
-        </p>
-        <p>
-          KPI progress helps track whether the action plan is creating
-          measurable impact.
         </p>
         <p>Approved plans are locked to protect the operational record.</p>
         <p>Implementation notes are available after approval.</p>
@@ -70,40 +68,29 @@ export function EditorSummary({
 
       {draft.approved ? <LockedNotice /> : null}
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        <button
-          className={primaryButtonClassName}
-          type="button"
-          onClick={onGenerate}
-          disabled={isGenerating || isSaving || draft.approved}
-        >
-          {isGenerating
-            ? "Generating action plan..."
-            : draft.actionPlan
-              ? "Regenerate Action Plan"
-              : "Generate Action Plan"}
-        </button>
-        {canApprove ? (
+      <ReviewPanel
+        draft={draft}
+        canRequestChanges={capabilities.canRequestChanges}
+        isSaving={isSaving}
+        onRequestChanges={onRequestChanges}
+      />
+
+      {capabilities.canGenerate ? (
+        <div className="mt-6 flex flex-wrap gap-2">
           <button
-            className={secondaryButtonClassName}
+            className={primaryButtonClassName}
             type="button"
-            onClick={onApprove}
-            disabled={isSaving}
+            onClick={onGenerate}
+            disabled={isGenerating || isSaving}
           >
-            Mark Approved
+            {isGenerating
+              ? "Generating action plan..."
+              : draft.actionPlan
+                ? "Regenerate Action Plan"
+                : "Generate Action Plan"}
           </button>
-        ) : null}
-        {canComplete ? (
-          <button
-            className={secondaryButtonClassName}
-            type="button"
-            onClick={onComplete}
-            disabled={isSaving}
-          >
-            Mark Done
-          </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }

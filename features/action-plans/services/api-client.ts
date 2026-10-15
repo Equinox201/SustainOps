@@ -1,6 +1,8 @@
 import type { ZodType } from "zod";
 import { apiErrorSchema } from "@/lib/schemas/action-plan";
 
+export const UNAUTHENTICATED_EVENT = "sustainops:unauthenticated";
+
 export type ApiFailure = {
   ok: false;
   code: string;
@@ -44,6 +46,11 @@ export async function apiRequest<T>(
     payload = await response.json();
   } catch {
     payload = null;
+  }
+
+  if (response.status === 401 && typeof window !== "undefined") {
+    // Lets the session hook return the user to the sign-in screen.
+    window.dispatchEvent(new Event(UNAUTHENTICATED_EVENT));
   }
 
   if (!response.ok) {

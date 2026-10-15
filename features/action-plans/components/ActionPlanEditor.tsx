@@ -1,3 +1,6 @@
+import type { SessionUser } from "@/lib/schemas/action-plan";
+import { getEditorCapabilities } from "../domain/capabilities";
+import { usePlanHistory } from "../hooks/usePlanHistory";
 import type { EditorDraft, EditorPanel } from "../types";
 import { AccountabilityFields } from "./AccountabilityFields";
 import { CaseForm } from "./CaseForm";
@@ -8,10 +11,12 @@ import { GeneratedPlan } from "./GeneratedPlan";
 import { ImplementationNotes } from "./ImplementationNotes";
 import { KpiPanel } from "./KpiPanel";
 import { LockedNotice } from "./LockedNotice";
+import { PlanHistory } from "./PlanHistory";
 import { ReadinessChecklist } from "./ReadinessChecklist";
 import { primaryButtonClassName } from "./form-styles";
 
 type ActionPlanEditorProps = {
+  user: SessionUser;
   draft: EditorDraft;
   activePanel: EditorPanel;
   errorMessage: string | null;
@@ -26,9 +31,11 @@ type ActionPlanEditorProps = {
   onApprove: () => void;
   onComplete: () => void;
   onResetApproval: () => void;
+  onRequestChanges: (comment: string) => void;
 };
 
 export function ActionPlanEditor({
+  user,
   draft,
   activePanel,
   errorMessage,
@@ -43,8 +50,12 @@ export function ActionPlanEditor({
   onApprove,
   onComplete,
   onResetApproval,
+  onRequestChanges,
 }: ActionPlanEditorProps) {
+  const capabilities = getEditorCapabilities(user, draft);
+  const history = usePlanHistory(draft.id, draft.updatedAt);
   const isApprovedLocked = draft.approved;
+  const caseReadOnly = !capabilities.canEditCore;
 
   function togglePanel(panel: EditorPanel, fallback: EditorPanel) {
     onPanelChange(activePanel === panel ? fallback : panel);
@@ -54,6 +65,7 @@ export function ActionPlanEditor({
     <section className="space-y-5">
       <EditorToolbar
         draft={draft}
+        capabilities={capabilities}
         isSaving={isSaving}
         onBack={onBack}
         onSave={onSave}
@@ -64,13 +76,13 @@ export function ActionPlanEditor({
 
       <EditorSummary
         draft={draft}
+        capabilities={capabilities}
         errorMessage={errorMessage}
         successMessage={successMessage}
         isGenerating={isGenerating}
         isSaving={isSaving}
         onGenerate={onGenerate}
-        onApprove={onApprove}
-        onComplete={onComplete}
+        onRequestChanges={onRequestChanges}
       />
 
       <div className="space-y-4">
@@ -83,29 +95,33 @@ export function ActionPlanEditor({
           {isApprovedLocked ? <LockedNotice className="mb-5" /> : null}
           <CaseForm
             value={draft.sustainabilityCase}
-            disabled={isApprovedLocked}
+            disabled={caseReadOnly}
             onChange={(sustainabilityCase) =>
               onDraftChange({ ...draft, sustainabilityCase })
             }
           />
           <AccountabilityFields
             draft={draft}
-            disabled={isApprovedLocked}
+            disabled={caseReadOnly}
             onDraftChange={onDraftChange}
           />
           <ReadinessChecklist
             draft={draft}
-            disabled={isApprovedLocked}
+            disabled={caseReadOnly}
             onDraftChange={onDraftChange}
           />
-          <button
-            className={`${primaryButtonClassName} mt-5`}
-            type="button"
-            onClick={onGenerate}
-            disabled={isGenerating || isApprovedLocked}
-          >
-            {isGenerating ? "Generating action plan..." : "Generate Action Plan"}
-          </button>
+          {capabilities.canGenerate ? (
+            <button
+              className={`${primaryButtonClassName} mt-5`}
+              type="button"
+              onClick={onGenerate}
+              disabled={isGenerating || isSaving}
+            >
+              {isGenerating
+                ? "Generating action plan..."
+                : "Generate Action Plan"}
+            </button>
+          ) : null}
           {isApprovedLocked ? (
             <p className="mt-2 text-sm leading-6 text-stone-500">
               Reset approval before making changes or refreshing the AI output.
@@ -124,25 +140,27 @@ export function ActionPlanEditor({
           {draft.actionPlan ? (
             <>
               {isApprovedLocked ? <LockedNotice className="mb-5" /> : null}
-              <div className="mb-5 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-stone-950">
-                    Save this generated action plan
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-stone-600">
-                    Save Action Plan records this AI output so it appears in the
-                    action-plan list.
-                  </p>
+              {capabilities.canSave ? (
+                <div className="mb-5 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-stone-950">
+                      Save this action plan
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-stone-600">
+                      Saving records your changes and adds them to the plan
+                      history.
+                    </p>
+                  </div>
+                  <button
+                    className="min-h-11 rounded-lg bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300"
+                    type="button"
+                    onClick={onSave}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? "Saving..." : "Save Action Plan"}
+                  </button>
                 </div>
-                <button
-                  className="min-h-11 rounded-lg bg-stone-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300"
-                  type="button"
-                  onClick={onSave}
-                  disabled={isSaving}
-                >
-                  {isSaving ? "Saving..." : "Save Action Plan"}
-                </button>
-              </div>
+              ) : null}
               <GeneratedPlan
                 actionPlan={draft.actionPlan}
                 governanceReview={draft.governanceReview}
@@ -160,7 +178,12 @@ export function ActionPlanEditor({
         >
           <KpiPanel
             draft={draft}
-            disabled={draft.completed}
+            disabled={!capabilities.canEditKpi}
+            disabledReason={
+              draft.completed
+                ? "KPI progress is read-only once the action plan is marked done."
+                : "Your role can view KPI progress but not change it."
+            }
             onDraftChange={onDraftChange}
           />
         </EditorSection>
@@ -173,7 +196,23 @@ export function ActionPlanEditor({
           lockedMessage="Approve this action plan to unlock implementation notes."
           onToggle={() => togglePanel("notes", "plan")}
         >
-          <ImplementationNotes draft={draft} onDraftChange={onDraftChange} />
+          <ImplementationNotes
+            draft={draft}
+            disabled={!capabilities.canEditNotes}
+            onDraftChange={onDraftChange}
+          />
+        </EditorSection>
+
+        <EditorSection
+          label="Section 5"
+          title="History"
+          description="Who did what, and when. Recorded by the server."
+          isOpen={activePanel === "history"}
+          isLocked={!draft.id}
+          lockedMessage="Save the plan to start its history."
+          onToggle={() => togglePanel("history", "plan")}
+        >
+          <PlanHistory events={history.events} error={history.error} />
         </EditorSection>
       </div>
     </section>

@@ -114,6 +114,7 @@ export function planToDraft(plan: StoredActionPlan): EditorDraft {
     approvedBy: plan.approvedBy,
     approvedAt: plan.approvedAt,
     createdAt: plan.createdAt,
+    updatedAt: plan.updatedAt,
   };
 }
 
