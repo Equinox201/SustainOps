@@ -93,7 +93,7 @@ export function getActionPlanSections(
     },
     {
       title: "Recommended Operational Actions",
-      items: actionPlan.recommendedOperationalActions,
+      actions: actionPlan.recommendedOperationalActions,
     },
     {
       title: "Staff Micro-Training Message",
@@ -119,28 +119,7 @@ export function getActionPlanSections(
 }
 
 export function copyActionPlan(plan: StoredActionPlan): StoredActionPlan {
-  return {
-    ...plan,
-    sustainabilityCase: { ...plan.sustainabilityCase },
-    actionPlan: plan.actionPlan
-      ? {
-          ...plan.actionPlan,
-          likelyRootCauses: [...plan.actionPlan.likelyRootCauses],
-          recommendedOperationalActions: [
-            ...plan.actionPlan.recommendedOperationalActions,
-          ],
-          managerChecklist: [...plan.actionPlan.managerChecklist],
-          kpisToMonitor: [...plan.actionPlan.kpisToMonitor],
-          governancePrivacyNotes: [...plan.actionPlan.governancePrivacyNotes],
-          followUpRecommendations: [
-            ...plan.actionPlan.followUpRecommendations,
-          ],
-        }
-      : null,
-    governanceReview: { ...plan.governanceReview },
-    readinessChecklist: { ...plan.readinessChecklist },
-    kpiProgress: { ...plan.kpiProgress },
-  };
+  return structuredClone(plan);
 }
 
 export function getOperationalOverviewMetrics(plans: StoredActionPlan[]) {

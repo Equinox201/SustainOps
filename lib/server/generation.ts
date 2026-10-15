@@ -1,8 +1,16 @@
 import { createHash } from "node:crypto";
 import OpenAI from "openai";
 import { and, count, eq, gte } from "drizzle-orm";
-import type { AIActionPlan, SustainabilityCaseInput } from "@/lib/types";
-import { aiActionPlanSchema } from "@/lib/schemas/action-plan";
+import type {
+  AIActionPlan,
+  ModelActionPlan,
+  SourceRef,
+  SustainabilityCaseInput,
+} from "@/lib/types";
+import {
+  aiActionPlanSchema,
+  modelActionPlanSchema,
+} from "@/lib/schemas/action-plan";
 import { actionPlanJsonSchema } from "@/lib/schemas/openai";
 import {
   PROMPT_VERSION,
@@ -12,7 +20,9 @@ import {
 import type { Principal } from "@/features/action-plans/domain/permissions";
 import { ApiError } from "./api";
 import { schema, type Database } from "./db";
+import { defaultMinScore, type Embedder } from "./embeddings";
 import type { ServerEnv } from "./env";
+import { retrieveSources } from "./knowledge";
 
 const { aiGenerations, auditEvents } = schema;
 
@@ -86,7 +96,7 @@ function stripJsonFence(text: string) {
   return match ? match[1] : text;
 }
 
-function parseModelOutput(text: string): AIActionPlan {
+function parseModelOutput(text: string): ModelActionPlan {
   let raw: unknown;
 
   try {
@@ -99,7 +109,7 @@ function parseModelOutput(text: string): AIActionPlan {
     );
   }
 
-  const result = aiActionPlanSchema.safeParse(raw);
+  const result = modelActionPlanSchema.safeParse(raw);
 
   if (!result.success) {
     throw new ApiError(
@@ -110,6 +120,59 @@ function parseModelOutput(text: string): AIActionPlan {
   }
 
   return result.data;
+}
+
+const CONFIDENCE_ORDER = ["Low", "Medium", "High"] as const;
+
+/**
+ * Turns the model's output into the stored plan.
+ *
+ * The model's citations are untrusted: any id that was not actually
+ * retrieved is dropped, and the plan's grounding and confidence are decided
+ * here from what survives, never from what the model claims.
+ */
+export function finalizePlan(
+  model: ModelActionPlan,
+  sources: SourceRef[],
+): { plan: AIActionPlan; citationsDropped: number } {
+  const known = new Set(sources.map((source) => source.id));
+  let citationsDropped = 0;
+
+  const actions = model.recommendedOperationalActions.map((item) => {
+    const valid = [...new Set(item.sourceIds)].filter((id) => known.has(id));
+    citationsDropped += item.sourceIds.length - valid.length;
+
+    return { action: item.action, sourceIds: valid };
+  });
+
+  const cited = actions.filter((item) => item.sourceIds.length > 0).length;
+  const status =
+    sources.length === 0 || cited === 0
+      ? "ungrounded"
+      : cited === actions.length
+        ? "grounded"
+        : "partial";
+
+  const ceiling =
+    status === "ungrounded" ? "Low" : status === "partial" ? "Medium" : "High";
+  const confidenceLevel =
+    CONFIDENCE_ORDER[
+      Math.min(
+        CONFIDENCE_ORDER.indexOf(model.confidenceLevel),
+        CONFIDENCE_ORDER.indexOf(ceiling),
+      )
+    ];
+
+  return {
+    plan: aiActionPlanSchema.parse({
+      ...model,
+      recommendedOperationalActions: actions,
+      confidenceLevel,
+      sources,
+      grounding: { status, retrievedCount: sources.length },
+    }),
+    citationsDropped,
+  };
 }
 
 function classifyModelError(error: unknown): ApiError {
@@ -200,6 +263,7 @@ export async function generateActionPlan({
   actor,
   clientKey,
   requestId,
+  getEmbedder,
   callModel = callOpenAI,
 }: {
   db: Database;
@@ -209,6 +273,8 @@ export async function generateActionPlan({
   actor: Principal;
   clientKey: string;
   requestId: string;
+  /** Created lazily, so a retrieval misconfiguration degrades gracefully. */
+  getEmbedder: () => Embedder;
   callModel?: ModelCaller;
 }): Promise<GenerationResult> {
   if (!env.OPENAI_API_KEY) {
@@ -236,15 +302,37 @@ export async function generateActionPlan({
   const startedAt = Date.now();
 
   try {
+    // Retrieval failure degrades to an ungrounded plan (clearly labelled)
+    // rather than blocking generation outright.
+    let sources: SourceRef[] = [];
+
+    try {
+      const embedder = getEmbedder();
+      const retrieved = await retrieveSources(db, input, {
+        embedder,
+        topK: env.RETRIEVAL_TOP_K,
+        minScore: env.RETRIEVAL_MIN_SCORE ?? defaultMinScore(embedder),
+      });
+      sources = retrieved.sources;
+    } catch (error) {
+      console.warn("retrieval failed; continuing ungrounded", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
     const modelCall = await callModel({
       apiKey: env.OPENAI_API_KEY,
       baseURL: env.OPENAI_BASE_URL,
       model: env.OPENAI_MODEL,
       timeoutMs: env.OPENAI_TIMEOUT_MS,
       instructions: SUSTAINABILITY_SYSTEM_PROMPT,
-      input: buildSustainabilityActionPlanPrompt(input),
+      input: buildSustainabilityActionPlanPrompt(input, sources),
     });
-    const actionPlan = parseModelOutput(modelCall.text);
+    const { plan: actionPlan, citationsDropped } = finalizePlan(
+      parseModelOutput(modelCall.text),
+      sources,
+    );
     const latencyMs = Date.now() - startedAt;
 
     await db
@@ -254,6 +342,9 @@ export async function generateActionPlan({
         latencyMs,
         inputTokens: modelCall.inputTokens,
         outputTokens: modelCall.outputTokens,
+        sources,
+        groundingStatus: actionPlan.grounding.status,
+        citationsDropped,
       })
       .where(eq(aiGenerations.id, record.id));
     await db.insert(auditEvents).values({
@@ -267,6 +358,9 @@ export async function generateActionPlan({
         generationId: record.id,
         model: env.OPENAI_MODEL,
         promptVersion: PROMPT_VERSION,
+        grounding: actionPlan.grounding.status,
+        sourceCount: sources.length,
+        citationsDropped,
       },
     });
 

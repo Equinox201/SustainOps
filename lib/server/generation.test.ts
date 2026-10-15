@@ -1,11 +1,16 @@
+import fs from "node:fs";
+import path from "node:path";
 import { count, sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { demoActionPlans } from "@/lib/demo-plans";
+import { parseKnowledgeDocument } from "@/lib/knowledge/parse";
 import type { Principal } from "@/features/action-plans/domain/permissions";
 import type { Database } from "./db";
 import { schema } from "./db";
+import { hashEmbedder } from "./embeddings";
 import type { ServerEnv } from "./env";
 import { generateActionPlan, type ModelCaller } from "./generation";
+import { ingestDocuments } from "./knowledge";
 import { createTestDb } from "./test-db";
 
 const MAYA: Principal = {
@@ -18,6 +23,10 @@ const MAYA: Principal = {
 const env: ServerEnv = {
   OPENAI_API_KEY: "test-key",
   OPENAI_BASE_URL: undefined,
+  EMBEDDINGS_PROVIDER: "hash",
+  EMBEDDINGS_MODEL: "text-embedding-3-small",
+  RETRIEVAL_TOP_K: 6,
+  RETRIEVAL_MIN_SCORE: undefined,
   OPENAI_MODEL: "test-model",
   OPENAI_TIMEOUT_MS: 1000,
   DATABASE_URL: undefined,
@@ -28,79 +37,224 @@ const env: ServerEnv = {
   RATE_LIMIT_SALT: "salt",
 };
 
-const validPlan = demoActionPlans[0].actionPlan;
-const okModel: ModelCaller = async () => ({
-  text: JSON.stringify(validPlan),
-  inputTokens: 120,
-  outputTokens: 480,
-});
+// The fixture plan as a model would return it (no sources/grounding).
+const {
+  sources: _sources,
+  grounding: _grounding,
+  ...basePlan
+} = demoActionPlans[0].actionPlan!;
+void _sources;
+void _grounding;
+
+function modelOutput(sourceIdsPerAction: string[][], confidence = "High") {
+  return JSON.stringify({
+    ...basePlan,
+    confidenceLevel: confidence,
+    recommendedOperationalActions: sourceIdsPerAction.map((sourceIds, index) => ({
+      action: `Action ${index + 1}`,
+      sourceIds,
+    })),
+  });
+}
+
+const reply =
+  (text: string): ModelCaller =>
+  async () => ({ text, inputTokens: 120, outputTokens: 480 });
+
+// A case the energy SOP covers (department Engineering).
+const energyCase = demoActionPlans[0].sustainabilityCase;
 
 let db: Database;
 
 beforeAll(async () => {
   db = await createTestDb();
+  const directory = path.join(process.cwd(), "knowledge");
+  const documents = fs
+    .readdirSync(directory)
+    .filter((file) => file.endsWith(".md") && file !== "README.md")
+    .map((file) =>
+      parseKnowledgeDocument(fs.readFileSync(path.join(directory, file), "utf8"), file),
+    );
+  await ingestDocuments(db, documents, hashEmbedder);
 });
 
 beforeEach(async () => {
   await db.execute(sql`truncate ai_generations, audit_events cascade`);
 });
 
-function run(callModel: ModelCaller, overrides: Partial<ServerEnv> = {}) {
+function run(
+  callModel: ModelCaller,
+  overrides: Partial<ServerEnv> = {},
+  input = energyCase,
+  clientKey = "client-1",
+) {
   return generateActionPlan({
     db,
     env: { ...env, ...overrides },
-    input: demoActionPlans[0].sustainabilityCase,
+    input,
     planId: null,
     actor: MAYA,
-    clientKey: "client-1",
+    clientKey,
     requestId: "req-1",
+    getEmbedder: () => hashEmbedder,
     callModel,
   });
 }
 
-describe("generateActionPlan", () => {
-  it("returns a validated plan and records the generation", async () => {
-    const result = await run(okModel);
+describe("grounded generation", () => {
+  it("retrieves approved sources and shows them to the model", async () => {
+    let prompt = "";
+    const capture: ModelCaller = async (args) => {
+      prompt = args.input;
+      return { text: modelOutput([["S1"], ["S1"], ["S1"]]), inputTokens: 1, outputTokens: 1 };
+    };
 
-    expect(result.actionPlan.humanReviewRequired).toBe(true);
-    expect(result.generation).toMatchObject({
-      model: "test-model",
-      promptVersion: expect.stringMatching(/^action-plan-v/),
+    await run(capture);
+
+    expect(prompt).toContain("Approved company sources");
+    expect(prompt).toContain("[S1] Energy and HVAC Operations SOP");
+    expect(prompt).toMatch(/occupancy is below 45 percent/);
+    expect(prompt).not.toMatch(/Food Waste Measurement/);
+  });
+
+  it("stores cited sources and marks a fully cited plan grounded", async () => {
+    const result = await run(reply(modelOutput([["S1"], ["S1"], ["S1"]])));
+    const plan = result.actionPlan;
+
+    expect(plan.grounding.status).toBe("grounded");
+    expect(plan.grounding.retrievedCount).toBeGreaterThan(0);
+    expect(plan.sources[0]).toMatchObject({
+      id: "S1",
+      documentTitle: "Energy and HVAC Operations SOP",
     });
+    expect(plan.confidenceLevel).toBe("High");
 
     const [row] = await db.select().from(schema.aiGenerations);
     expect(row).toMatchObject({
       status: "succeeded",
+      groundingStatus: "grounded",
+      citationsDropped: 0,
       userId: MAYA.id,
-      inputTokens: 120,
-      outputTokens: 480,
     });
+    expect((row.sources as unknown[]).length).toBe(plan.sources.length);
   });
 
-  it("tolerates a markdown-fenced JSON reply", async () => {
-    const fenced: ModelCaller = async () => ({
-      text: "```json\n" + JSON.stringify(validPlan) + "\n```",
-      inputTokens: null,
-      outputTokens: null,
+  it("drops citations to sources it was never given", async () => {
+    const result = await run(reply(modelOutput([["S1", "S99"], ["S42"], ["S1"]])));
+
+    expect(result.actionPlan.recommendedOperationalActions).toEqual([
+      { action: "Action 1", sourceIds: ["S1"] },
+      { action: "Action 2", sourceIds: [] },
+      { action: "Action 3", sourceIds: ["S1"] },
+    ]);
+    expect(result.actionPlan.grounding.status).toBe("partial");
+
+    const [row] = await db.select().from(schema.aiGenerations);
+    expect(row.citationsDropped).toBe(2);
+  });
+
+  it("caps confidence at Medium when only some actions are grounded", async () => {
+    const result = await run(reply(modelOutput([["S1"], [], []], "High")));
+
+    expect(result.actionPlan.grounding.status).toBe("partial");
+    expect(result.actionPlan.confidenceLevel).toBe("Medium");
+  });
+
+  it("forces Low confidence when the model claims High without valid evidence", async () => {
+    const result = await run(reply(modelOutput([["S77"], ["S88"], []], "High")));
+
+    expect(result.actionPlan.grounding.status).toBe("ungrounded");
+    expect(result.actionPlan.confidenceLevel).toBe("Low");
+  });
+
+  it("generates an ungrounded plan, and says so, when nothing matches", async () => {
+    let prompt = "";
+    const capture: ModelCaller = async (args) => {
+      prompt = args.input;
+      return { text: modelOutput([[], []], "High"), inputTokens: 1, outputTokens: 1 };
+    };
+
+    const result = await run(capture, {}, {
+      property: "Harbour House Singapore",
+      department: "Sales & Marketing",
+      issue: "Quantum chess tournament scheduling",
+      currentMetric: "Seventeen grandmasters",
+      targetMetric: "Zero overlapping rounds",
+      operationalContext: "Venue acoustics and trophy engraving.",
     });
 
-    await expect(run(fenced)).resolves.toBeTruthy();
+    expect(prompt).toContain("No approved company sources matched this case");
+    expect(result.actionPlan.sources).toEqual([]);
+    expect(result.actionPlan.grounding).toEqual({
+      status: "ungrounded",
+      retrievedCount: 0,
+    });
+    expect(result.actionPlan.confidenceLevel).toBe("Low");
+  });
+
+  it("degrades to an ungrounded plan when retrieval cannot run", async () => {
+    const result = await generateActionPlan({
+      db,
+      env,
+      input: energyCase,
+      planId: null,
+      actor: MAYA,
+      clientKey: "client-1",
+      requestId: "req-1",
+      getEmbedder: () => {
+        throw new Error("embeddings unavailable");
+      },
+      callModel: reply(modelOutput([["S1"], ["S1"]], "High")),
+    });
+
+    expect(result.actionPlan.grounding.status).toBe("ungrounded");
+    expect(result.actionPlan.sources).toEqual([]);
+    expect(result.actionPlan.confidenceLevel).toBe("Low");
+  });
+
+  it("records the prompt version and model for provenance", async () => {
+    const result = await run(reply(modelOutput([["S1"], ["S1"], ["S1"]])));
+
+    expect(result.generation).toMatchObject({
+      model: "test-model",
+      promptVersion: "action-plan-v3-grounded",
+    });
+  });
+});
+
+describe("generation safety", () => {
+  it("tolerates a markdown-fenced JSON reply", async () => {
+    const fenced = "```json\n" + modelOutput([["S1"], ["S1"], ["S1"]]) + "\n```";
+
+    await expect(run(reply(fenced))).resolves.toBeTruthy();
   });
 
   it("turns malformed output into a safe 502 and marks the attempt failed", async () => {
-    const malformed: ModelCaller = async () => ({
-      text: JSON.stringify({ ...validPlan, humanReviewRequired: false }),
-      inputTokens: null,
-      outputTokens: null,
+    const malformed = JSON.stringify({
+      ...JSON.parse(modelOutput([["S1"]])),
+      humanReviewRequired: false,
     });
 
-    await expect(run(malformed)).rejects.toMatchObject({
+    await expect(run(reply(malformed))).rejects.toMatchObject({
       status: 502,
       code: "ai_invalid_output",
     });
 
     const [row] = await db.select().from(schema.aiGenerations);
     expect(row).toMatchObject({ status: "failed", errorCode: "ai_invalid_output" });
+  });
+
+  it("rejects output that smuggles in server-owned fields", async () => {
+    const forged = JSON.stringify({
+      ...JSON.parse(modelOutput([["S1"]])),
+      grounding: { status: "grounded", retrievedCount: 99 },
+      sources: [],
+    });
+
+    await expect(run(reply(forged))).rejects.toMatchObject({
+      status: 502,
+      code: "ai_invalid_output",
+    });
   });
 
   it("does not leak provider errors to the caller", async () => {
@@ -116,10 +270,11 @@ describe("generateActionPlan", () => {
   });
 
   it("applies the per-user hourly limit", async () => {
-    await run(okModel);
-    await run(okModel);
+    const model = reply(modelOutput([["S1"]]));
+    await run(model);
+    await run(model);
 
-    await expect(run(okModel)).rejects.toMatchObject({
+    await expect(run(model)).rejects.toMatchObject({
       status: 429,
       code: "rate_limited",
     });
@@ -129,25 +284,17 @@ describe("generateActionPlan", () => {
   });
 
   it("applies the global daily cap", async () => {
+    const model = reply(modelOutput([["S1"]]));
+    await run(model, { GENERATION_DAILY_CAP: 1 });
+
     await expect(
-      run(okModel, { GENERATION_DAILY_CAP: 1 }).then(() =>
-        generateActionPlan({
-          db,
-          env: { ...env, GENERATION_DAILY_CAP: 1 },
-          input: demoActionPlans[0].sustainabilityCase,
-          planId: null,
-          actor: MAYA,
-          clientKey: "different-client",
-          requestId: "req-2",
-          callModel: okModel,
-        }),
-      ),
+      run(model, { GENERATION_DAILY_CAP: 1 }, energyCase, "different-client"),
     ).rejects.toMatchObject({ status: 429, code: "daily_cap_reached" });
   });
 
   it("refuses to run without an API key", async () => {
     await expect(
-      run(okModel, { OPENAI_API_KEY: undefined }),
+      run(reply(modelOutput([["S1"]])), { OPENAI_API_KEY: undefined }),
     ).rejects.toMatchObject({ status: 503, code: "ai_not_configured" });
   });
 });

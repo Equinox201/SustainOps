@@ -11,6 +11,8 @@ export type ActionPlanSection = {
   title: string;
   body?: string;
   items?: string[];
+  /** Recommended actions, each with the sources that support it. */
+  actions?: AIActionPlan["recommendedOperationalActions"];
 };
 
 export type EditorDraft = {

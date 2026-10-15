@@ -9,6 +9,7 @@ import {
   text,
   timestamp,
   uuid,
+  vector,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import type {
@@ -65,6 +66,10 @@ export const aiGenerations = pgTable(
     latencyMs: integer("latency_ms"),
     inputTokens: integer("input_tokens"),
     outputTokens: integer("output_tokens"),
+    // What the plan was grounded on, as retrieved for this generation.
+    sources: jsonb("sources").$type<unknown[]>(),
+    groundingStatus: text("grounding_status"),
+    citationsDropped: integer("citations_dropped").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -165,6 +170,67 @@ export const auditEvents = pgTable(
   (table) => [
     index("audit_events_plan_created_idx").on(table.planId, table.createdAt),
     index("audit_events_created_idx").on(table.createdAt),
+  ],
+).enableRLS();
+
+/**
+ * Approved company knowledge. Only documents with status "approved" are ever
+ * retrieved; older versions are kept as "superseded" for the record.
+ */
+export const knowledgeDocuments = pgTable(
+  "knowledge_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    title: text("title").notNull(),
+    department: text("department").notNull(),
+    documentType: text("document_type").notNull(),
+    region: text("region").notNull(),
+    version: integer("version").notNull(),
+    status: text("status").notNull(),
+    contentHash: text("content_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("knowledge_documents_status_dept_idx").on(
+      table.status,
+      table.department,
+    ),
+    check(
+      "knowledge_documents_status_check",
+      sql`${table.status} in ('approved', 'draft', 'superseded')`,
+    ),
+  ],
+).enableRLS();
+
+export const EMBEDDING_DIMENSIONS = 1536;
+
+/** One numbered section of a document: the unit of retrieval and citation. */
+export const knowledgeChunks = pgTable(
+  "knowledge_chunks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    documentId: uuid("document_id")
+      .notNull()
+      .references(() => knowledgeDocuments.id, { onDelete: "cascade" }),
+    ordinal: integer("ordinal").notNull(),
+    sectionRef: text("section_ref").notNull(),
+    heading: text("heading").notNull(),
+    content: text("content").notNull(),
+    // Chunks are only compared to vectors made by the same embedding model.
+    embeddingModel: text("embedding_model").notNull(),
+    embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("knowledge_chunks_document_idx").on(table.documentId, table.ordinal),
   ],
 ).enableRLS();
 

@@ -42,11 +42,23 @@ const aiList = z
   .min(1)
   .max(LIMITS.aiItems);
 
+/** Short alias the model uses to cite a retrieved source, e.g. "S1". */
+export const sourceIdSchema = z.string().regex(/^S\d{1,2}$/);
+
+export const recommendedActionSchema = z.strictObject({
+  action: requiredText(LIMITS.aiItem),
+  // Only ids of sources supplied in the prompt are valid; the server checks.
+  sourceIds: z.array(sourceIdSchema).max(4),
+});
+
 /** What the model must return. Kept strict; human review is always required. */
-export const aiActionPlanSchema = z.strictObject({
+export const modelActionPlanSchema = z.strictObject({
   situationSummary: requiredText(LIMITS.aiSummary),
   likelyRootCauses: aiList,
-  recommendedOperationalActions: aiList,
+  recommendedOperationalActions: z
+    .array(recommendedActionSchema)
+    .min(1)
+    .max(LIMITS.aiItems),
   staffMicroTrainingMessage: requiredText(LIMITS.aiSummary),
   managerChecklist: aiList,
   kpisToMonitor: aiList,
@@ -54,6 +66,37 @@ export const aiActionPlanSchema = z.strictObject({
   followUpRecommendations: aiList,
   confidenceLevel: z.enum(CONFIDENCE_LEVELS),
   humanReviewRequired: z.literal(true),
+});
+
+/** A retrieved source, frozen into the plan at generation time. */
+export const sourceRefSchema = z.strictObject({
+  id: sourceIdSchema,
+  chunkId: z.uuid(),
+  documentId: z.uuid(),
+  documentTitle: z.string(),
+  documentVersion: z.number().int(),
+  documentType: z.string(),
+  department: z.string(),
+  sectionRef: z.string(),
+  heading: z.string(),
+  excerpt: z.string().max(1200),
+  score: z.number(),
+});
+
+export const GROUNDING_STATUSES = ["grounded", "partial", "ungrounded"] as const;
+
+export const groundingSchema = z.strictObject({
+  status: z.enum(GROUNDING_STATUSES),
+  retrievedCount: z.number().int().min(0),
+});
+
+/**
+ * The stored plan: the model's output plus what it was grounded on. The
+ * server adds `sources` and `grounding`; the model never writes them.
+ */
+export const aiActionPlanSchema = modelActionPlanSchema.extend({
+  sources: z.array(sourceRefSchema).max(12),
+  grounding: groundingSchema,
 });
 
 export const governanceReviewSchema = z.strictObject({
@@ -116,6 +159,10 @@ export const actorRefSchema = z.strictObject({
 
 export type SustainabilityCaseInput = z.infer<typeof sustainabilityCaseSchema>;
 export type AIActionPlan = z.infer<typeof aiActionPlanSchema>;
+export type ModelActionPlan = z.infer<typeof modelActionPlanSchema>;
+export type RecommendedAction = z.infer<typeof recommendedActionSchema>;
+export type SourceRef = z.infer<typeof sourceRefSchema>;
+export type Grounding = z.infer<typeof groundingSchema>;
 export type GovernanceReview = z.infer<typeof governanceReviewSchema>;
 export type ReadinessChecklist = z.infer<typeof readinessChecklistSchema>;
 export type KPIProgress = z.infer<typeof kpiProgressSchema>;
