@@ -2,10 +2,14 @@ import type {
   ActorRef,
   AIActionPlan,
   GovernanceReview,
+  Grounding,
   KPIProgress,
+  ModelActionPlan,
   PlanContent,
   Priority,
   ReadinessChecklist,
+  RecommendedAction,
+  SourceRef,
   SustainabilityCaseInput,
 } from "@/lib/schemas/action-plan";
 
@@ -13,10 +17,14 @@ export type {
   ActorRef,
   AIActionPlan,
   GovernanceReview,
+  Grounding,
   KPIProgress,
+  ModelActionPlan,
   PlanContent,
   Priority,
   ReadinessChecklist,
+  RecommendedAction,
+  SourceRef,
   SustainabilityCaseInput,
 };
 

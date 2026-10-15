@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { aiActionPlanSchema } from "./action-plan";
+import { modelActionPlanSchema } from "./action-plan";
 
 type JsonSchema = Record<string, unknown>;
 
@@ -43,5 +43,5 @@ function toStrictSchema(node: unknown): unknown {
 }
 
 export const actionPlanJsonSchema = toStrictSchema(
-  z.toJSONSchema(aiActionPlanSchema, { io: "output" }),
+  z.toJSONSchema(modelActionPlanSchema, { io: "output" }),
 ) as JsonSchema;

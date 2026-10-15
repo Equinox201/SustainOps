@@ -1,5 +1,83 @@
-import type { AIActionPlan, GovernanceReview } from "@/lib/types";
+import type { AIActionPlan, GovernanceReview, SourceRef } from "@/lib/types";
 import { formatDate, getActionPlanSections } from "../domain/plan-utils";
+
+function sourceLabel(source: SourceRef) {
+  return `${source.documentTitle} v${source.documentVersion} ${source.sectionRef}`;
+}
+
+function GroundingBanner({ actionPlan }: { actionPlan: AIActionPlan }) {
+  const { grounding, recommendedOperationalActions: actions } = actionPlan;
+  const cited = actions.filter((action) => action.sourceIds.length > 0).length;
+
+  if (grounding.status === "grounded") {
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-950">
+        <p className="font-semibold">Grounded in approved company sources</p>
+        <p>
+          Every recommended action cites a source ({actionPlan.sources.length}{" "}
+          retrieved). Reviewers can check each citation below.
+        </p>
+      </div>
+    );
+  }
+
+  if (grounding.status === "partial") {
+    return (
+      <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+        <p className="font-semibold">Partly grounded</p>
+        <p>
+          {cited} of {actions.length} recommended actions cite an approved
+          source. Treat the others as general guidance. Confidence is capped at
+          Medium.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
+      <p className="font-semibold">General guidance only</p>
+      <p>
+        No approved company source supports this plan, so it must not be
+        presented as company policy. Confidence is capped at Low.
+      </p>
+    </div>
+  );
+}
+
+function SourceChips({
+  sourceIds,
+  sources,
+}: {
+  sourceIds: string[];
+  sources: SourceRef[];
+}) {
+  if (sourceIds.length === 0) {
+    return (
+      <span className="mt-2 inline-flex rounded-md border border-stone-200 bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
+        No approved source
+      </span>
+    );
+  }
+
+  return (
+    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Sources">
+      {sourceIds.map((id) => {
+        const source = sources.find((candidate) => candidate.id === id);
+
+        return source ? (
+          <li
+            key={id}
+            title={source.heading}
+            className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-900"
+          >
+            {sourceLabel(source)}
+          </li>
+        ) : null;
+      })}
+    </ul>
+  );
+}
 
 export function GeneratedPlan({
   actionPlan,
@@ -15,6 +93,8 @@ export function GeneratedPlan({
         <p>Do not enter guest personal data.</p>
         <p>Audit timestamp: {formatDate(governanceReview.auditTimestamp)}</p>
       </div>
+
+      <GroundingBanner actionPlan={actionPlan} />
 
       {getActionPlanSections(actionPlan).map((section) => (
         <section
@@ -39,8 +119,57 @@ export function GeneratedPlan({
               ))}
             </ul>
           ) : null}
+          {section.actions ? (
+            <ul className="mt-3 space-y-4 text-sm leading-6 text-stone-600">
+              {section.actions.map((item) => (
+                <li key={item.action} className="flex gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-800" />
+                  <span>
+                    {item.action}
+                    <SourceChips
+                      sourceIds={item.sourceIds}
+                      sources={actionPlan.sources}
+                    />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ))}
+
+      {actionPlan.sources.length > 0 ? (
+        <section className="rounded-lg border border-stone-200 bg-white p-5">
+          <h3 className="text-sm font-semibold uppercase tracking-[0.13em] text-stone-700">
+            Sources retrieved
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-stone-500">
+            Frozen with this plan at generation time, so the record shows what
+            the recommendations relied on even if documents change later.
+          </p>
+          <ul className="mt-4 space-y-3">
+            {actionPlan.sources.map((source) => (
+              <li
+                key={source.id}
+                className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3"
+              >
+                <details>
+                  <summary className="cursor-pointer text-sm font-semibold text-stone-900">
+                    {source.id} · {sourceLabel(source)} · {source.heading}
+                  </summary>
+                  <p className="mt-2 text-xs uppercase tracking-[0.12em] text-stone-500">
+                    {source.documentType} · {source.department} · relevance{" "}
+                    {source.score.toFixed(2)}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-stone-700">
+                    {source.excerpt}
+                  </p>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-stone-200 bg-white p-5">

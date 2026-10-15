@@ -11,7 +11,11 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:check": "node scripts/check-db.mjs"
+    "db:check": "node scripts/check-db.mjs",
+    "e2e": "playwright test",
+    "e2e:report": "playwright show-report",
+    "knowledge:ingest": "tsx scripts/ingest-knowledge.ts",
+    "knowledge:probe": "tsx scripts/probe-retrieval.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
@@ -25,6 +29,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.9",
+    "@electric-sql/pglite-pgvector": "^0.0.11",
+    "@electric-sql/pglite-socket": "^0.2.13",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.20.5",
     "@types/react": "^19",
@@ -33,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.3"
   }

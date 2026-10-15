@@ -68,24 +68,24 @@ export function ActionPlanList({
               ? "Create your first sustainability action plan or load demo cases to explore the workflow."
               : "Plans appear here once a Sustainability Manager creates them."}
           </p>
-          <div
-            className={`mt-6 flex-col justify-center gap-3 sm:flex-row ${canCreate ? "flex" : "hidden"}`}
-          >
-            <button
-              className="min-h-12 rounded-lg bg-stone-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800"
-              type="button"
-              onClick={onCreate}
-            >
-              Create New Action Plan
-            </button>
-            <button
-              className="min-h-12 rounded-lg border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-stone-50"
-              type="button"
-              onClick={onLoadDemoCases}
-            >
-              Load Demo Cases
-            </button>
-          </div>
+          {canCreate ? (
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <button
+                className="min-h-12 rounded-lg bg-stone-950 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-stone-800"
+                type="button"
+                onClick={onCreate}
+              >
+                Create New Action Plan
+              </button>
+              <button
+                className="min-h-12 rounded-lg border border-stone-300 bg-white px-5 py-3 text-sm font-semibold text-stone-800 shadow-sm transition hover:bg-stone-50"
+                type="button"
+                onClick={onLoadDemoCases}
+              >
+                Load Demo Cases
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="grid gap-4">

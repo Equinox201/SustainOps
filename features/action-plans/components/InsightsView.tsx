@@ -1,4 +1,5 @@
 import type { AuditEvent, StoredActionPlan } from "@/lib/types";
+import { useKnowledgeDocuments } from "../hooks/useKnowledgeDocuments";
 import { AdoptionSignals } from "./AdoptionSignals";
 import { KnowledgeSourcesPanel } from "./KnowledgeSourcesPanel";
 
@@ -9,6 +10,7 @@ export function InsightsView({
   plans: StoredActionPlan[];
   auditEvents: AuditEvent[];
 }) {
+  const { documents, error } = useKnowledgeDocuments(true);
   const hasNoSignals = plans.length === 0 && auditEvents.length === 0;
 
   return (
@@ -21,8 +23,8 @@ export function InsightsView({
           Insights & Knowledge
         </h2>
         <p className="mt-3 max-w-4xl text-sm leading-6 text-stone-600 sm:text-base">
-          Monitor adoption signals and preview the approved sustainability
-          knowledge sources that will ground future recommendations.
+          Monitor adoption signals and see the approved sustainability
+          knowledge sources that ground every recommendation.
         </p>
       </div>
 
@@ -33,7 +35,7 @@ export function InsightsView({
       ) : null}
 
       <AdoptionSignals plans={plans} auditEvents={auditEvents} />
-      <KnowledgeSourcesPanel />
+      <KnowledgeSourcesPanel documents={documents} error={error} />
     </section>
   );
 }

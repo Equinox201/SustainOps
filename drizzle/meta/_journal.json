@@ -22,6 +22,20 @@
       "when": 1792027357067,
       "tag": "0002_seed_demo_users",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792034489360,
+      "tag": "0003_knowledge_base",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792034490279,
+      "tag": "0004_grounded_plan_shape",
+      "breakpoints": true
     }
   ]
 }

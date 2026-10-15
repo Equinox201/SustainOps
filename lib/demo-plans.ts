@@ -1,4 +1,4 @@
-import type { StoredActionPlan } from "@/lib/types";
+import type { AIActionPlan, StoredActionPlan } from "@/lib/types";
 
 const demoTimestamp = "2026-06-07T00:00:00.000Z";
 
@@ -27,7 +27,16 @@ type SeedFields =
   | "approvedBy"
   | "approvedAt";
 
-const rawDemoActionPlans: Array<Omit<StoredActionPlan, SeedFields>> = [
+type RawAiPlan = Omit<
+  AIActionPlan,
+  "recommendedOperationalActions" | "sources" | "grounding"
+> & { recommendedOperationalActions: string[] };
+
+type RawDemoPlan = Omit<StoredActionPlan, SeedFields | "actionPlan"> & {
+  actionPlan: RawAiPlan;
+};
+
+const rawDemoActionPlans: RawDemoPlan[] = [
   {
     id: "demo-energy-floor-shutdown",
     title:
@@ -263,9 +272,54 @@ const rawDemoActionPlans: Array<Omit<StoredActionPlan, SeedFields>> = [
   },
 ];
 
+/**
+ * Which corpus section supports each recommended action, per demo plan
+ * (outer index = action). Resolved against the ingested knowledge base when
+ * the demo plans are seeded, so a demo plan cites real, retrieved sections.
+ */
+export type DemoCitation = { slug: string; sectionRef: string };
+
+export const demoCitations: Record<string, DemoCitation[][]> = {
+  "demo-energy-floor-shutdown": [
+    [{ slug: "energy-hvac-operations-sop", sectionRef: "§2.2" }],
+    [{ slug: "energy-hvac-operations-sop", sectionRef: "§2.2" }],
+    [{ slug: "energy-hvac-operations-sop", sectionRef: "§3.3" }],
+    [{ slug: "energy-hvac-operations-sop", sectionRef: "§4.1" }],
+  ],
+  "demo-breakfast-croissant-waste": [
+    [{ slug: "food-waste-sop", sectionRef: "§2.1" }],
+    [
+      { slug: "food-waste-sop", sectionRef: "§3.1" },
+      { slug: "food-waste-sop", sectionRef: "§3.3" },
+    ],
+    [{ slug: "food-waste-sop", sectionRef: "§3.3" }],
+    [{ slug: "food-waste-sop", sectionRef: "§4.2" }],
+  ],
+  "demo-procurement-supplier-screening": [
+    [{ slug: "sustainable-procurement-policy", sectionRef: "§1.1" }],
+    [{ slug: "sustainable-procurement-policy", sectionRef: "§2.1" }],
+    [
+      { slug: "sustainable-procurement-policy", sectionRef: "§2.1" },
+      { slug: "sustainable-procurement-policy", sectionRef: "§2.2" },
+    ],
+    [{ slug: "sustainable-procurement-policy", sectionRef: "§2.2" }],
+  ],
+};
+
+/** Demo plans without grounding; the seed route attaches real sources. */
 export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
   (plan) => ({
     ...plan,
+    actionPlan: {
+      ...plan.actionPlan,
+      recommendedOperationalActions:
+        plan.actionPlan.recommendedOperationalActions.map((action) => ({
+          action,
+          sourceIds: [],
+        })),
+      sources: [],
+      grounding: { status: "ungrounded", retrievedCount: 0 },
+    },
     generationId: null,
     reviewStatus: "none",
     reviewComment: null,

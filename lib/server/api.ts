@@ -8,6 +8,8 @@ export class ApiError extends Error {
     message: string,
     readonly details?: unknown,
     readonly headers?: Record<string, string>,
+    /** For server logs only; never sent to the client. */
+    readonly diagnostics?: unknown,
   ) {
     super(message);
   }

@@ -18,6 +18,21 @@ const demoResponse = z.object({
 });
 const eventsResponse = z.object({ events: z.array(auditEventSchema) });
 const okResponse = z.object({ ok: z.literal(true) });
+const knowledgeResponse = z.object({
+  documents: z.array(
+    z.object({
+      id: z.string(),
+      slug: z.string(),
+      title: z.string(),
+      department: z.string(),
+      documentType: z.string(),
+      region: z.string(),
+      version: z.number(),
+      status: z.string(),
+      chunkCount: z.number(),
+    }),
+  ),
+});
 
 export type GenerationOutcome = z.infer<typeof generationResponseSchema>;
 
@@ -117,5 +132,15 @@ export async function fetchAuditEvents() {
 
   return result.ok
     ? { ok: true as const, data: result.data.events.map(toAuditEvent) }
+    : result;
+}
+
+export async function fetchKnowledgeDocuments() {
+  const result = await apiRequest("/api/knowledge", {
+    schema: knowledgeResponse,
+  });
+
+  return result.ok
+    ? { ok: true as const, data: result.data.documents }
     : result;
 }

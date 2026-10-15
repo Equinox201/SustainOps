@@ -492,12 +492,42 @@ export async function seedDemoPlans(
       .onConflictDoNothing()
       .returning({ id: actionPlans.id });
 
-    if (inserted.length > 0) {
+    // Demo plans loaded before the knowledge base existed are ungrounded;
+    // upgrade those that nobody has approved yet.
+    const insertedIds = new Set(inserted.map((row) => row.id));
+    let refreshed = 0;
+
+    for (const plan of demoPlans) {
+      if (
+        insertedIds.has(plan.id) ||
+        !plan.actionPlan ||
+        plan.actionPlan.grounding.status === "ungrounded"
+      ) {
+        continue;
+      }
+
+      const updated = await tx
+        .update(actionPlans)
+        .set({ actionPlan: plan.actionPlan })
+        .where(
+          and(
+            eq(actionPlans.id, plan.id),
+            eq(actionPlans.approved, false),
+            eq(actionPlans.completed, false),
+            sql`${actionPlans.actionPlan}->'grounding'->>'status' = 'ungrounded'`,
+          ),
+        )
+        .returning({ id: actionPlans.id });
+
+      refreshed += updated.length;
+    }
+
+    if (inserted.length > 0 || refreshed > 0) {
       await recordAudit(tx, context, {
         eventType: "demo_cases_loaded",
         planId: null,
         department: null,
-        metadata: { count: inserted.length },
+        metadata: { count: inserted.length, refreshed },
       });
     }
 
