@@ -23,6 +23,31 @@ import type {
  * with the database role, reads and writes them.
  */
 
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    role: text("role").notNull(),
+    department: text("department"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "users_role_check",
+      sql`${table.role} in ('sustainability_manager', 'department_manager', 'reviewer')`,
+    ),
+    // Department managers are scoped to a department.
+    check(
+      "users_department_manager_has_department",
+      sql`${table.role} <> 'department_manager' or ${table.department} is not null`,
+    ),
+  ],
+).enableRLS();
+
 export const aiGenerations = pgTable(
   "ai_generations",
   {
@@ -30,6 +55,9 @@ export const aiGenerations = pgTable(
     requestId: text("request_id").notNull(),
     clientKey: text("client_key").notNull(),
     planId: text("plan_id"),
+    userId: text("user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     model: text("model").notNull(),
     promptVersion: text("prompt_version").notNull(),
     status: text("status").notNull().default("pending"),
@@ -81,6 +109,15 @@ export const actionPlans = pgTable(
     actionNotes: text("action_notes").notNull().default(""),
     approved: boolean("approved").notNull().default(false),
     completed: boolean("completed").notNull().default(false),
+    reviewStatus: text("review_status").notNull().default("none"),
+    reviewComment: text("review_comment"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    approvedBy: text("approved_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -90,6 +127,10 @@ export const actionPlans = pgTable(
   },
   (table) => [
     index("action_plans_created_idx").on(table.createdAt),
+    check(
+      "action_plans_review_status_check",
+      sql`${table.reviewStatus} in ('none', 'changes_requested')`,
+    ),
     check(
       "action_plans_priority_check",
       sql`${table.priority} in ('Low', 'Medium', 'High')`,
@@ -109,6 +150,11 @@ export const auditEvents = pgTable(
     // Not a foreign key on purpose: history must outlive a deleted plan.
     planId: text("plan_id"),
     eventType: text("event_type").notNull(),
+    actorUserId: text("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    // Role at the time of the event, so history stays accurate if roles change.
+    actorRole: text("actor_role"),
     department: text("department"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
     requestId: text("request_id"),

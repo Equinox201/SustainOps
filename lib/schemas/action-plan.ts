@@ -103,8 +103,15 @@ export const generateRequestSchema = z.strictObject({
 });
 
 export const transitionRequestSchema = z.strictObject({
-  event: z.enum(["approve", "complete", "reset_approval"]),
+  event: z.enum(["approve", "request_changes", "complete", "reset_approval"]),
   content: planContentSchema.optional(),
+  comment: z.string().trim().min(1).max(1000).optional(),
+});
+
+export const actorRefSchema = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  role: z.enum(["sustainability_manager", "department_manager", "reviewer"]),
 });
 
 export type SustainabilityCaseInput = z.infer<typeof sustainabilityCaseSchema>;
@@ -114,6 +121,8 @@ export type ReadinessChecklist = z.infer<typeof readinessChecklistSchema>;
 export type KPIProgress = z.infer<typeof kpiProgressSchema>;
 export type PlanContent = z.infer<typeof planContentSchema>;
 export type Priority = (typeof PRIORITIES)[number];
+export type ActorRef = z.infer<typeof actorRefSchema>;
+export type SessionUser = z.infer<typeof sessionUserSchema>;
 
 /** A plan as returned by the API: content plus server-owned fields. */
 export const storedActionPlanSchema = planContentSchema.extend({
@@ -122,6 +131,11 @@ export const storedActionPlanSchema = planContentSchema.extend({
   governanceReview: governanceReviewSchema,
   approved: z.boolean(),
   completed: z.boolean(),
+  reviewStatus: z.enum(["none", "changes_requested"]),
+  reviewComment: z.string().nullable(),
+  createdBy: actorRefSchema.nullable(),
+  approvedBy: actorRefSchema.nullable(),
+  approvedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -142,7 +156,18 @@ export const auditEventSchema = z.object({
   eventType: z.string(),
   planId: z.string().nullable(),
   department: z.string().nullable(),
+  actor: z
+    .object({ id: z.string(), name: z.string(), role: z.string() })
+    .nullable(),
+  comment: z.string().nullable(),
   createdAt: z.string(),
+});
+
+export const sessionUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: z.enum(["sustainability_manager", "department_manager", "reviewer"]),
+  department: z.string().nullable(),
 });
 
 export const apiErrorSchema = z.object({

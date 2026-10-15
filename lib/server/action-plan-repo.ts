@@ -1,5 +1,6 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import type {
+  ActorRef,
   AuditEvent,
   AuditEventType,
   Priority,
@@ -11,34 +12,61 @@ import {
   buildGovernanceReview,
   createPlanFromContent,
   lifecycleErrorMessages,
+  planToContent,
   transitionPlan,
   type LifecycleError,
   type LifecycleEvent,
   type LifecycleResult,
 } from "@/features/action-plans/domain/lifecycle";
+import {
+  can,
+  canAccessPlan,
+  permissionsForContentChange,
+  type Permission,
+  type Principal,
+} from "@/features/action-plans/domain/permissions";
 import { ApiError } from "./api";
 import { schema, type Database } from "./db";
 import type { ActionPlanRow } from "./db/schema";
 
-const { actionPlans, aiGenerations, auditEvents } = schema;
+const { actionPlans, aiGenerations, auditEvents, users } = schema;
 
-export type WriteContext = { requestId: string | null };
+export type WriteContext = {
+  requestId: string | null;
+  actor: Principal;
+};
 
 const LIFECYCLE_STATUS: Record<LifecycleError, number> = {
   case_incomplete: 422,
   not_generated: 422,
+  comment_required: 422,
   not_ready: 409,
   already_approved: 409,
   not_approved: 409,
   already_completed: 409,
   plan_locked: 409,
+  self_approval_forbidden: 403,
 };
 
 const TRANSITION_AUDIT_EVENT: Record<LifecycleEvent, AuditEventType> = {
   approve: "action_plan_approved",
+  request_changes: "changes_requested",
   complete: "action_plan_completed",
   reset_approval: "approval_reset",
 };
+
+const TRANSITION_PERMISSION: Record<LifecycleEvent, Permission> = {
+  approve: "plan:approve",
+  request_changes: "plan:request_changes",
+  complete: "plan:complete",
+  reset_approval: "plan:reset_approval",
+};
+
+const toActorRef = (actor: Principal): ActorRef => ({
+  id: actor.id,
+  name: actor.name,
+  role: actor.role,
+});
 
 function unwrap(result: LifecycleResult): StoredActionPlan {
   if (result.ok) {
@@ -52,7 +80,41 @@ function unwrap(result: LifecycleResult): StoredActionPlan {
   );
 }
 
-function rowToPlan(row: ActionPlanRow): StoredActionPlan {
+function forbidden(permission: Permission) {
+  return new ApiError(
+    403,
+    "forbidden",
+    "Your role is not allowed to do this.",
+    { permission },
+  );
+}
+
+function requirePermission(
+  actor: Principal,
+  permission: Permission,
+  plan?: { sustainabilityCase: { department: string } },
+) {
+  if (!can(actor, permission, plan)) {
+    throw forbidden(permission);
+  }
+}
+
+type UserRefs = Map<string, ActorRef>;
+
+async function loadUserRefs(db: Database): Promise<UserRefs> {
+  const rows = await db.select().from(users);
+
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      { id: row.id, name: row.name, role: row.role as ActorRef["role"] },
+    ]),
+  );
+}
+
+function rowToPlan(row: ActionPlanRow, refs: UserRefs): StoredActionPlan {
+  const reviewStatus = row.reviewStatus as StoredActionPlan["reviewStatus"];
+
   return {
     id: row.id,
     title: row.title,
@@ -69,6 +131,7 @@ function rowToPlan(row: ActionPlanRow): StoredActionPlan {
     governanceReview: buildGovernanceReview({
       approved: row.approved,
       completed: row.completed,
+      changesRequested: reviewStatus === "changes_requested",
       generatedAt: (row.generatedAt ?? row.createdAt).toISOString(),
     }),
     actionNotes: row.actionNotes,
@@ -80,6 +143,11 @@ function rowToPlan(row: ActionPlanRow): StoredActionPlan {
     kpiProgress: row.kpiProgress,
     approved: row.approved,
     completed: row.completed,
+    reviewStatus,
+    reviewComment: row.reviewComment,
+    createdBy: row.createdBy ? (refs.get(row.createdBy) ?? null) : null,
+    approvedBy: row.approvedBy ? (refs.get(row.approvedBy) ?? null) : null,
+    approvedAt: row.approvedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -107,6 +175,11 @@ function planToRow(plan: StoredActionPlan): typeof actionPlans.$inferInsert {
     actionNotes: plan.actionNotes,
     approved: plan.approved,
     completed: plan.completed,
+    reviewStatus: plan.reviewStatus,
+    reviewComment: plan.reviewComment,
+    createdBy: plan.createdBy?.id ?? null,
+    approvedBy: plan.approvedBy?.id ?? null,
+    approvedAt: plan.approvedAt ? new Date(plan.approvedAt) : null,
     createdAt: new Date(plan.createdAt),
     updatedAt: new Date(plan.updatedAt),
   };
@@ -114,11 +187,11 @@ function planToRow(plan: StoredActionPlan): typeof actionPlans.$inferInsert {
 
 async function recordAudit(
   db: Database,
+  context: WriteContext,
   event: {
     eventType: AuditEventType;
     planId: string | null;
     department: string | null;
-    requestId: string | null;
     metadata?: Record<string, unknown>;
   },
 ) {
@@ -126,7 +199,9 @@ async function recordAudit(
     eventType: event.eventType,
     planId: event.planId,
     department: event.department,
-    requestId: event.requestId,
+    actorUserId: context.actor.id,
+    actorRole: context.actor.role,
+    requestId: context.requestId,
     metadata: event.metadata ?? null,
   });
 }
@@ -153,18 +228,27 @@ async function resolveGeneration(db: Database, generationId: string | null) {
   return generation.createdAt.toISOString();
 }
 
-async function lockPlan(db: Database, id: string): Promise<StoredActionPlan> {
+/**
+ * Locks and returns a plan the actor may access. Out-of-scope plans answer
+ * 404, so a department manager cannot probe for other departments' plans.
+ */
+async function lockPlan(
+  db: Database,
+  id: string,
+  actor: Principal,
+): Promise<StoredActionPlan> {
   const [row] = await db
     .select()
     .from(actionPlans)
     .where(eq(actionPlans.id, id))
     .for("update");
+  const plan = row ? rowToPlan(row, await loadUserRefs(db)) : null;
 
-  if (!row) {
+  if (!plan || !canAccessPlan(actor, plan)) {
     throw new ApiError(404, "plan_not_found", "Action plan not found.");
   }
 
-  return rowToPlan(row);
+  return plan;
 }
 
 async function persistPlan(db: Database, plan: StoredActionPlan) {
@@ -173,24 +257,37 @@ async function persistPlan(db: Database, plan: StoredActionPlan) {
   await db.update(actionPlans).set(values).where(eq(actionPlans.id, plan.id));
 }
 
+/** Checks the permissions an edit needs, based on which fields it changes. */
+function authorizeContentChange(
+  actor: Principal,
+  existing: StoredActionPlan,
+  content: PlanContent,
+) {
+  for (const permission of permissionsForContentChange(
+    planToContent(existing),
+    content,
+  )) {
+    requirePermission(actor, permission, existing);
+  }
+}
+
 /** Audit events for note and KPI edits, recorded only when they really changed. */
 async function recordContentChanges(
   db: Database,
+  context: WriteContext,
   before: StoredActionPlan | null,
   after: StoredActionPlan,
-  context: WriteContext,
 ) {
   const base = {
     planId: after.id,
     department: after.sustainabilityCase.department,
-    requestId: context.requestId,
   };
 
   if (
     after.actionNotes.trim() &&
     after.actionNotes !== (before?.actionNotes ?? "")
   ) {
-    await recordAudit(db, { ...base, eventType: "action_notes_updated" });
+    await recordAudit(db, context, { ...base, eventType: "action_notes_updated" });
   }
 
   const hasKpi = Object.values(after.kpiProgress).some((v) => v.trim());
@@ -199,30 +296,45 @@ async function recordContentChanges(
     JSON.stringify(before?.kpiProgress ?? null);
 
   if (hasKpi && kpiChanged) {
-    await recordAudit(db, { ...base, eventType: "kpi_progress_updated" });
+    await recordAudit(db, context, { ...base, eventType: "kpi_progress_updated" });
   }
 }
 
-export async function listPlans(db: Database): Promise<StoredActionPlan[]> {
+export async function listPlans(
+  db: Database,
+  actor: Principal,
+): Promise<StoredActionPlan[]> {
+  requirePermission(actor, "plan:view");
+
+  const scope =
+    actor.role === "department_manager"
+      ? eq(actionPlans.department, actor.department ?? "")
+      : undefined;
   const rows = await db
     .select()
     .from(actionPlans)
+    .where(scope)
     .orderBy(desc(actionPlans.createdAt));
+  const refs = await loadUserRefs(db);
 
-  return rows.map(rowToPlan);
+  return rows.map((row) => rowToPlan(row, refs));
 }
 
 export async function getPlan(
   db: Database,
   id: string,
+  actor: Principal,
 ): Promise<StoredActionPlan> {
-  const [row] = await db.select().from(actionPlans).where(eq(actionPlans.id, id));
+  requirePermission(actor, "plan:view");
 
-  if (!row) {
+  const [row] = await db.select().from(actionPlans).where(eq(actionPlans.id, id));
+  const plan = row ? rowToPlan(row, await loadUserRefs(db)) : null;
+
+  if (!plan || !canAccessPlan(actor, plan)) {
     throw new ApiError(404, "plan_not_found", "Action plan not found.");
   }
 
-  return rowToPlan(row);
+  return plan;
 }
 
 export async function createPlan(
@@ -230,6 +342,8 @@ export async function createPlan(
   content: PlanContent,
   context: WriteContext,
 ): Promise<StoredActionPlan> {
+  requirePermission(context.actor, "plan:create");
+
   return db.transaction(async (tx) => {
     const generatedAt = await resolveGeneration(tx, content.generationId);
     const plan = unwrap(
@@ -237,17 +351,17 @@ export async function createPlan(
         id: crypto.randomUUID(),
         now: new Date().toISOString(),
         generatedAt,
+        createdBy: toActorRef(context.actor),
       }),
     );
 
     await tx.insert(actionPlans).values(planToRow(plan));
-    await recordAudit(tx, {
+    await recordAudit(tx, context, {
       eventType: "action_plan_created",
       planId: plan.id,
       department: plan.sustainabilityCase.department,
-      requestId: context.requestId,
     });
-    await recordContentChanges(tx, null, plan, context);
+    await recordContentChanges(tx, context, null, plan);
 
     return plan;
   });
@@ -259,8 +373,13 @@ export async function updatePlan(
   content: PlanContent,
   context: WriteContext,
 ): Promise<StoredActionPlan> {
+  requirePermission(context.actor, "plan:view");
+
   return db.transaction(async (tx) => {
-    const existing = await lockPlan(tx, id);
+    const existing = await lockPlan(tx, id, context.actor);
+
+    authorizeContentChange(context.actor, existing, content);
+
     const generatedAt = await resolveGeneration(tx, content.generationId);
     const plan = unwrap(
       applyContentUpdate(existing, content, {
@@ -270,51 +389,65 @@ export async function updatePlan(
     );
 
     await persistPlan(tx, plan);
-    await recordAudit(tx, {
+    await recordAudit(tx, context, {
       eventType: "action_plan_updated",
       planId: plan.id,
       department: plan.sustainabilityCase.department,
-      requestId: context.requestId,
     });
-    await recordContentChanges(tx, existing, plan, context);
+    await recordContentChanges(tx, context, existing, plan);
 
     return plan;
   });
 }
 
 /**
- * Approve / complete / reset. Optional pending edits are applied under the
- * same lock rules and committed together with the transition.
+ * Approve / request changes / complete / reset. Optional pending edits are
+ * applied under the same lock rules and committed with the transition.
  */
 export async function transitionPlanState(
   db: Database,
   id: string,
   event: LifecycleEvent,
-  content: PlanContent | undefined,
+  options: { content?: PlanContent; comment?: string },
   context: WriteContext,
 ): Promise<StoredActionPlan> {
+  requirePermission(context.actor, TRANSITION_PERMISSION[event]);
+
   return db.transaction(async (tx) => {
-    const existing = await lockPlan(tx, id);
+    const existing = await lockPlan(tx, id, context.actor);
+
+    requirePermission(context.actor, TRANSITION_PERMISSION[event], existing);
+
     const now = new Date().toISOString();
     let current = existing;
 
-    if (content) {
-      const generatedAt = await resolveGeneration(tx, content.generationId);
+    if (options.content) {
+      authorizeContentChange(context.actor, existing, options.content);
+
+      const generatedAt = await resolveGeneration(
+        tx,
+        options.content.generationId,
+      );
       current = unwrap(
-        applyContentUpdate(existing, content, { now, generatedAt }),
+        applyContentUpdate(existing, options.content, { now, generatedAt }),
       );
     }
 
-    const plan = unwrap(transitionPlan(current, event, now));
+    const plan = unwrap(
+      transitionPlan(current, event, now, {
+        actor: toActorRef(context.actor),
+        comment: options.comment,
+      }),
+    );
 
     await persistPlan(tx, plan);
-    await recordAudit(tx, {
+    await recordAudit(tx, context, {
       eventType: TRANSITION_AUDIT_EVENT[event],
       planId: plan.id,
       department: plan.sustainabilityCase.department,
-      requestId: context.requestId,
+      metadata: options.comment ? { comment: options.comment } : undefined,
     });
-    await recordContentChanges(tx, existing, plan, context);
+    await recordContentChanges(tx, context, existing, plan);
 
     return plan;
   });
@@ -325,15 +458,16 @@ export async function deletePlan(
   id: string,
   context: WriteContext,
 ): Promise<void> {
+  requirePermission(context.actor, "plan:delete");
+
   await db.transaction(async (tx) => {
-    const existing = await lockPlan(tx, id);
+    const existing = await lockPlan(tx, id, context.actor);
 
     await tx.delete(actionPlans).where(eq(actionPlans.id, id));
-    await recordAudit(tx, {
+    await recordAudit(tx, context, {
       eventType: "action_plan_deleted",
       planId: id,
       department: existing.sustainabilityCase.department,
-      requestId: context.requestId,
     });
   });
 }
@@ -344,6 +478,8 @@ export async function seedDemoPlans(
   demoPlans: StoredActionPlan[],
   context: WriteContext,
 ): Promise<number> {
+  requirePermission(context.actor, "plan:create");
+
   return db.transaction(async (tx) => {
     if (demoPlans.length === 0) {
       return 0;
@@ -356,11 +492,10 @@ export async function seedDemoPlans(
       .returning({ id: actionPlans.id });
 
     if (inserted.length > 0) {
-      await recordAudit(tx, {
+      await recordAudit(tx, context, {
         eventType: "demo_cases_loaded",
         planId: null,
         department: null,
-        requestId: context.requestId,
         metadata: { count: inserted.length },
       });
     }
@@ -369,21 +504,60 @@ export async function seedDemoPlans(
   });
 }
 
-export async function listAuditEvents(
+async function readEvents(
   db: Database,
-  limit = 500,
+  where: ReturnType<typeof eq> | undefined,
+  order: "asc" | "desc",
+  limit: number,
 ): Promise<AuditEvent[]> {
   const rows = await db
     .select()
     .from(auditEvents)
-    .orderBy(desc(auditEvents.createdAt), sql`${auditEvents.id}`)
+    .where(where)
+    .orderBy(
+      order === "asc" ? asc(auditEvents.createdAt) : desc(auditEvents.createdAt),
+      sql`${auditEvents.id}`,
+    )
     .limit(limit);
+  const refs = await loadUserRefs(db);
 
-  return rows.map((row) => ({
-    id: row.id,
-    eventType: row.eventType as AuditEventType,
-    planId: row.planId,
-    department: row.department,
-    createdAt: row.createdAt.toISOString(),
-  }));
+  return rows.map((row) => {
+    const actor = row.actorUserId ? refs.get(row.actorUserId) : undefined;
+    const comment = row.metadata?.comment;
+
+    return {
+      id: row.id,
+      eventType: row.eventType as AuditEventType,
+      planId: row.planId,
+      department: row.department,
+      actor: actor
+        ? { id: actor.id, name: actor.name, role: row.actorRole ?? actor.role }
+        : null,
+      comment: typeof comment === "string" ? comment : null,
+      createdAt: row.createdAt.toISOString(),
+    };
+  });
+}
+
+/** Organisation-wide recent events (managers and reviewers only). */
+export async function listAuditEvents(
+  db: Database,
+  actor: Principal,
+  limit = 500,
+): Promise<AuditEvent[]> {
+  requirePermission(actor, "audit:view");
+
+  return readEvents(db, undefined, "desc", limit);
+}
+
+/** The history of one plan, oldest first. */
+export async function getPlanHistory(
+  db: Database,
+  planId: string,
+  actor: Principal,
+): Promise<AuditEvent[]> {
+  // Reuses the plan lookup so scope rules (and 404s) are identical.
+  await getPlan(db, planId, actor);
+
+  return readEvents(db, and(eq(auditEvents.planId, planId)), "asc", 200);
 }

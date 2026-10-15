@@ -33,4 +33,9 @@ export function getDb(): Database {
   return database;
 }
 
+/** Test seam: use an in-memory database instead of DATABASE_URL. */
+export function setDbForTesting(db: Database | null) {
+  database = db;
+}
+
 export { schema };
