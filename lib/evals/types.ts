@@ -26,8 +26,6 @@ export type EvalCase = {
     forbiddenText?: string[];
     /** A stale figure that must not appear (the trap's wrong answer). */
     staleFacts?: string[];
-    /** The current figure; at least one should appear (informational). */
-    currentFacts?: string[];
   };
 };
 
@@ -79,7 +77,6 @@ export type GenerationCaseResult = {
   kpisTotal: number;
   forbiddenTextHits: string[];
   staleFactHits: string[];
-  currentFactUsed: boolean | null;
   confidence: "Low" | "Medium" | "High" | null;
   judge?: { supported: number; partial: number; unsupported: number };
 };

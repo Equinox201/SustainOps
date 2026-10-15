@@ -105,7 +105,6 @@ export const evalCases: EvalCase[] = [
       gold: [{ slug: HK, sectionRef: "§4.2" }],
       forbiddenSlugs: [HK_V1],
       staleFacts: ["25 percent", "25%", "25 per cent"],
-      currentFacts: ["10 percent", "10%", "10 per cent"],
     },
   },
 

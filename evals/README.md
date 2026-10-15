@@ -58,6 +58,7 @@ a semantic one misses none.
 | Untraceable figures | Percentages and temperatures in the plan found in neither the case text nor the retrieved sources. A deterministic proxy for unsupported claims |
 | Judged faithful | An LLM judge rates each cited action against only its cited excerpts: supported / partial / unsupported |
 | Stale figure stated / forbidden text | Hard checks on the trap and adversarial cases. Target: 0 |
+| Confidence reported | Distribution of the model's own confidence. Reported, not scored |
 | KPIs measurable | KPIs that name a number, rate or unit (heuristic) |
 | Latency | Wall-clock time per generation, including any retry |
 
@@ -66,6 +67,15 @@ wrong abstention, at least one gold section found, and (in full runs) the plan
 generated, was labelled as expected, and contains no forbidden text or stale
 figure. Informational metrics (untraceable figures, judged faithfulness, KPI
 measurability) do not fail a case, but are reported.
+
+### A metric that was removed
+
+An early version also scored "current figure used" on the trap case: whether
+the plan literally printed the right threshold. Inspecting the plan showed it
+applied the rule correctly ("open a formal sustainability case") without
+restating the number, so the metric rewarded wording, not behaviour. It was
+removed rather than reported. The trap is judged by the check that matters:
+the plan must not repeat the superseded figure.
 
 ## Reading the numbers
 

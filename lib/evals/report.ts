@@ -46,7 +46,6 @@ export type EvalReport = {
       kpiMeasurable: Proportion;
       forbiddenTextCases: Proportion;
       staleFactCases: Proportion;
-      currentFactUsed: Proportion;
       faithfulness: null | {
         supported: Proportion;
         supportedOrPartial: Proportion;
@@ -179,11 +178,6 @@ export function buildReport({
             report.generation?.ok && retrievedSomething(report.id),
         );
         const traceable = sum((g) => g.figuresChecked);
-        const withCurrentFact = reports.filter(
-          (report) =>
-            report.generation?.ok &&
-            report.generation.currentFactUsed !== null,
-        );
         const staleChecked = cases.filter(
           (evalCase) => (evalCase.expect.staleFacts?.length ?? 0) > 0,
         );
@@ -238,10 +232,6 @@ export function buildReport({
           staleFactCases: proportion(
             okGenerations.filter((g) => g.staleFactHits.length > 0).length,
             staleChecked.length,
-          ),
-          currentFactUsed: proportion(
-            withCurrentFact.filter((r) => r.generation?.currentFactUsed).length,
-            withCurrentFact.length,
           ),
           faithfulness:
             total === 0
@@ -302,11 +292,19 @@ export function buildReport({
       };
     }),
     cases: reports,
-    limitations: buildLimitations(meta, cases.length),
+    limitations: buildLimitations(
+      meta,
+      cases.length,
+      generationSummary?.confidence ?? null,
+    ),
   };
 }
 
-function buildLimitations(meta: EvalMeta, caseCount: number): string[] {
+function buildLimitations(
+  meta: EvalMeta,
+  caseCount: number,
+  confidence: Record<"Low" | "Medium" | "High", number> | null,
+): string[] {
   const limitations = [
     `Small benchmark: ${caseCount} cases over a ${meta.corpus.sections}-section synthetic corpus. Rates carry wide confidence intervals; read counts, not just percentages.`,
     "Gold sections were chosen by the author before any model output was seen, but one person labelled them. There is no inter-annotator agreement.",
@@ -321,6 +319,16 @@ function buildLimitations(meta: EvalMeta, caseCount: number): string[] {
       "'Partially supported' mostly means an action follows a cited section and adds operational detail (a duration, a logging step). That is often desirable, but it is not the same as being stated by the policy.",
       "The KPI-measurability heuristic was revised after the first full run, which had misclassified plainly countable KPIs. The definition is in evals/README.md.",
     );
+  }
+
+  if (confidence) {
+    const total = confidence.Low + confidence.Medium + confidence.High;
+
+    if (total > 0 && confidence.High / total >= 0.75) {
+      limitations.push(
+        `Confidence is not yet a discriminating signal: ${confidence.High} of ${total} plans report High. The server caps it when grounding is weak, but among grounded plans the model almost always says High.`,
+      );
+    }
   }
 
   if (meta.judgeModel) {

@@ -240,6 +240,19 @@ export default function EvalsPage() {
               />
               <div className="rounded-lg border border-stone-200 bg-white p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.13em] text-stone-500">
+                  Confidence reported
+                </p>
+                <p className="mt-2 text-3xl font-semibold text-stone-950">
+                  {generation.confidence.High} High
+                </p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">
+                  {generation.confidence.Medium} Medium ·{" "}
+                  {generation.confidence.Low} Low. Not yet a discriminating
+                  signal among grounded plans.
+                </p>
+              </div>
+              <div className="rounded-lg border border-stone-200 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.13em] text-stone-500">
                   Latency
                 </p>
                 <p className="mt-2 text-3xl font-semibold text-stone-950">
@@ -329,9 +342,30 @@ export default function EvalsPage() {
                       <td className="px-4 py-3">{item.retrieval.retrieved.length}</td>
                       {generation ? (
                         <td className="px-4 py-3 text-stone-600">
-                          {item.generation?.ok
-                            ? `${item.generation.groundingStatus} · ${item.generation.confidence} · ${item.generation.actionsCited}/${item.generation.actions} cited`
-                            : "failed"}
+                          {item.generation?.ok ? (
+                            <>
+                              {item.generation.groundingStatus} ·{" "}
+                              {item.generation.confidence} ·{" "}
+                              {item.generation.actionsCited}/
+                              {item.generation.actions} cited
+                              {item.generation.judge ? (
+                                <span className="block text-xs text-stone-500">
+                                  judge: {item.generation.judge.supported}{" "}
+                                  supported · {item.generation.judge.partial}{" "}
+                                  partial · {item.generation.judge.unsupported}{" "}
+                                  unsupported
+                                </span>
+                              ) : null}
+                              {item.generation.untraceableFigures.length > 0 ? (
+                                <span className="block text-xs text-amber-800">
+                                  untraceable:{" "}
+                                  {item.generation.untraceableFigures.join(", ")}
+                                </span>
+                              ) : null}
+                            </>
+                          ) : (
+                            "failed"
+                          )}
                         </td>
                       ) : null}
                       <td className="px-4 py-3">

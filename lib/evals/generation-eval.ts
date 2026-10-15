@@ -54,7 +54,6 @@ async function evaluateCase(
     kpisTotal: 0,
     forbiddenTextHits: [],
     staleFactHits: [],
-    currentFactUsed: null,
     confidence: null,
   };
   const startedAt = Date.now();
@@ -83,7 +82,6 @@ async function evaluateCase(
     const actionsCited = plan.recommendedOperationalActions.filter(
       (item) => item.sourceIds.length > 0,
     ).length;
-    const currentFacts = evalCase.expect.currentFacts;
 
     const result: GenerationCaseResult = {
       ...empty,
@@ -112,9 +110,6 @@ async function evaluateCase(
       kpisTotal: plan.kpisToMonitor.length,
       forbiddenTextHits: containsAny(text, evalCase.expect.forbiddenText),
       staleFactHits: containsAny(text, evalCase.expect.staleFacts),
-      currentFactUsed: currentFacts
-        ? containsAny(text, currentFacts).length > 0
-        : null,
       confidence: plan.confidenceLevel,
     };
 
