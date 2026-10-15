@@ -33,8 +33,12 @@ function getRequestId(request: Request) {
     : crypto.randomUUID();
 }
 
-export function json(data: unknown, status = 200) {
-  return Response.json(data, { status });
+export function json(
+  data: unknown,
+  status = 200,
+  headers?: Record<string, string>,
+) {
+  return Response.json(data, { status, headers });
 }
 
 type RouteContext<P> = { requestId: string; params: P };
@@ -92,6 +96,17 @@ export async function parseBody<T>(
   request: Request,
   schema: ZodType<T>,
 ): Promise<T> {
+  const contentType = request.headers.get("content-type") ?? "";
+
+  // Requiring JSON also blocks cross-site HTML form posts (CSRF).
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new ApiError(
+      415,
+      "unsupported_media_type",
+      "Content-Type must be application/json.",
+    );
+  }
+
   const text = await request.text();
 
   if (text.length > MAX_BODY_BYTES) {

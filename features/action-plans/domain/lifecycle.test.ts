@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { demoActionPlans } from "@/lib/demo-plans";
 import type { StoredActionPlan } from "@/lib/types";
+import type { ActorRef } from "@/lib/types";
 import {
   applyContentUpdate,
   checkDraftSavable,
@@ -145,6 +146,79 @@ describe("transitionPlan", () => {
     transitionPlan(plan, "approve", NOW);
 
     expect(plan).toEqual(snapshot);
+  });
+});
+
+const AUTHOR: ActorRef = {
+  id: "usr_maya_chen",
+  name: "Maya Chen",
+  role: "sustainability_manager",
+};
+const REVIEWER: ActorRef = {
+  id: "usr_daniel_ortiz",
+  name: "Daniel Ortiz",
+  role: "reviewer",
+};
+
+describe("review decisions", () => {
+  it("records the approver and approval time", () => {
+    const result = transitionPlan(makePlan(), "approve", NOW, {
+      actor: REVIEWER,
+    });
+
+    expect(result.ok && result.plan).toMatchObject({
+      approvedBy: REVIEWER,
+      approvedAt: NOW,
+    });
+  });
+
+  it("does not let a plan's author approve it", () => {
+    const plan = makePlan({ createdBy: AUTHOR });
+
+    expect(transitionPlan(plan, "approve", NOW, { actor: AUTHOR })).toEqual({
+      ok: false,
+      error: "self_approval_forbidden",
+    });
+  });
+
+  it("clears the approver when approval is reset", () => {
+    const approved = makePlan({
+      approved: true,
+      approvedBy: REVIEWER,
+      approvedAt: NOW,
+    });
+    const result = transitionPlan(approved, "reset_approval", NOW);
+
+    expect(result.ok && result.plan).toMatchObject({
+      approvedBy: null,
+      approvedAt: null,
+    });
+  });
+
+  it("requires a comment to request changes", () => {
+    expect(transitionPlan(makePlan(), "request_changes", NOW)).toEqual({
+      ok: false,
+      error: "comment_required",
+    });
+
+    const result = transitionPlan(makePlan(), "request_changes", NOW, {
+      actor: REVIEWER,
+      comment: "  Clarify the owner.  ",
+    });
+
+    expect(result.ok && result.plan).toMatchObject({
+      reviewStatus: "changes_requested",
+      reviewComment: "Clarify the owner.",
+      governanceReview: { reviewerStatus: "Needs Revision" },
+    });
+  });
+
+  it("cannot request changes on an approved plan", () => {
+    expect(
+      transitionPlan(makePlan({ approved: true }), "request_changes", NOW, {
+        comment: "No",
+      }),
+    ).toEqual({ ok: false, error: "already_approved" });
   });
 });
 

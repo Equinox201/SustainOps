@@ -1,4 +1,5 @@
 import type {
+  ActorRef,
   AIActionPlan,
   GovernanceReview,
   KPIProgress,
@@ -9,6 +10,7 @@ import type {
 } from "@/lib/schemas/action-plan";
 
 export type {
+  ActorRef,
   AIActionPlan,
   GovernanceReview,
   KPIProgress,
@@ -24,6 +26,7 @@ export type AuditEventType =
   | "action_plan_generated"
   | "action_plan_updated"
   | "action_plan_approved"
+  | "changes_requested"
   | "approval_reset"
   | "action_plan_completed"
   | "action_plan_deleted"
@@ -35,6 +38,8 @@ export type AuditEvent = {
   eventType: AuditEventType;
   planId: string | null;
   department: string | null;
+  actor: { id: string; name: string; role: string } | null;
+  comment: string | null;
   createdAt: string;
 };
 
@@ -54,6 +59,11 @@ export type StoredActionPlan = {
   kpiProgress: KPIProgress;
   approved: boolean;
   completed: boolean;
+  reviewStatus: "none" | "changes_requested";
+  reviewComment: string | null;
+  createdBy: ActorRef | null;
+  approvedBy: ActorRef | null;
+  approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };

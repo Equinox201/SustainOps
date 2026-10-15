@@ -2,18 +2,27 @@ import { transitionRequestSchema } from "@/lib/schemas/action-plan";
 import { parseBody, json, withApi } from "@/lib/server/api";
 import { transitionPlanState } from "@/lib/server/action-plan-repo";
 import { getDb } from "@/lib/server/db";
+import { requirePrincipal } from "@/lib/server/session";
 
 type Params = { id: string };
 
-/** Approve, complete or reset a plan, optionally saving pending edits first. */
+/**
+ * Approve, request changes, complete or reset a plan, optionally saving
+ * pending edits in the same transaction. Permissions depend on the event.
+ */
 export const POST = withApi<Params>(async (request, { requestId, params }) => {
-  const { event, content } = await parseBody(request, transitionRequestSchema);
+  const db = getDb();
+  const actor = await requirePrincipal(request, db);
+  const { event, content, comment } = await parseBody(
+    request,
+    transitionRequestSchema,
+  );
   const plan = await transitionPlanState(
-    getDb(),
+    db,
     params.id,
     event,
-    content,
-    { requestId },
+    { content, comment },
+    { requestId, actor },
   );
 
   return json({ plan });

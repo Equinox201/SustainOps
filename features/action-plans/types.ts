@@ -28,6 +28,10 @@ export type EditorDraft = {
   kpiProgress: KPIProgress;
   approved: boolean;
   completed: boolean;
+  reviewStatus: StoredActionPlan["reviewStatus"];
+  reviewComment: string | null;
+  approvedBy: StoredActionPlan["approvedBy"];
+  approvedAt: string | null;
   createdAt: string | null;
 };
 

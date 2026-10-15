@@ -9,6 +9,7 @@ import {
   SUSTAINABILITY_SYSTEM_PROMPT,
   buildSustainabilityActionPlanPrompt,
 } from "@/lib/prompts";
+import type { Principal } from "@/features/action-plans/domain/permissions";
 import { ApiError } from "./api";
 import { schema, type Database } from "./db";
 import type { ServerEnv } from "./env";
@@ -65,11 +66,12 @@ export const callOpenAI: ModelCaller = async ({
   };
 };
 
-export function getClientKey(request: Request, salt: string) {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || "unknown";
-
-  return createHash("sha256").update(`${salt}:${ip}`).digest("hex").slice(0, 32);
+/** Rate limits are per signed-in user; the key is salted and hashed. */
+export function getClientKey(actor: Principal, salt: string) {
+  return createHash("sha256")
+    .update(`${salt}:${actor.id}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
 function stripJsonFence(text: string) {
@@ -188,6 +190,7 @@ export async function generateActionPlan({
   env,
   input,
   planId,
+  actor,
   clientKey,
   requestId,
   callModel = callOpenAI,
@@ -196,6 +199,7 @@ export async function generateActionPlan({
   env: ServerEnv;
   input: SustainabilityCaseInput;
   planId: string | null;
+  actor: Principal;
   clientKey: string;
   requestId: string;
   callModel?: ModelCaller;
@@ -216,6 +220,7 @@ export async function generateActionPlan({
       requestId,
       clientKey,
       planId,
+      userId: actor.id,
       model: env.OPENAI_MODEL,
       promptVersion: PROMPT_VERSION,
     })
@@ -247,6 +252,8 @@ export async function generateActionPlan({
       eventType: "action_plan_generated",
       planId,
       department: input.department,
+      actorUserId: actor.id,
+      actorRole: actor.role,
       requestId,
       metadata: {
         generationId: record.id,
