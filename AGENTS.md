@@ -45,7 +45,9 @@ lib/schemas/                 Zod schemas: the single source of truth for data sh
 lib/server/                  server-only: db, repository, generation, retrieval, env, api helpers
 lib/knowledge/               pure parser/chunker for knowledge documents
 knowledge/                   synthetic Markdown corpus (numbered sections = citations)
-scripts/                     ingest-knowledge, probe-retrieval, check-db
+evals/                       benchmark cases, methodology, published results
+lib/evals/                   metrics, harness, judge, report builder
+scripts/                     ingest-knowledge, probe-retrieval, run-evals, inspect-eval, check-db
 lib/server/db/schema.ts      Drizzle schema (migrations are generated into drizzle/)
 features/action-plans/
   components/                UI; ActionPlanEditor composes the small pieces
@@ -81,6 +83,10 @@ features/action-plans/
   case's department (or "All departments") are eligible; similarity only ranks.
 - **Corpus content is synthetic.** Never add real company documents to
   `knowledge/`. Every file carries the synthetic banner (a test enforces it).
+- **Evals are part of the product.** Change retrieval, the prompt or the
+  similarity floor, and re-run `npm run evals`. Publish what it measures,
+  including failures; never edit a report by hand. If a metric turns out to
+  measure wording instead of behaviour, remove it and say so.
 - **Keep the AI contract strict.** Changes to the plan shape must update the
   JSON schema, the validators and the prompt together, and must keep the
   structured-output guarantee.
@@ -90,6 +96,6 @@ features/action-plans/
 
 ## Roadmap
 
-Planned, in order: an evaluation suite for grounding, citations and schema
-compliance (the retrieval floor is calibrated on few cases), then deployment.
-See `README.md`.
+Planned: deployment (with the abuse caps), then product work the evals point
+at: separating "what the policy says" from "what this plan proposes", and a
+confidence signal that discriminates. See `README.md`.

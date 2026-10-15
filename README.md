@@ -121,6 +121,59 @@ with no reranking; a document's `region` is stored but not yet used as a
 filter. An offline hash embedder keeps tests and CI free, but it has no
 semantic knowledge and is not a substitute for a real model.
 
+## Evaluation
+
+Whether a plan is *really* grounded is measured, not asserted. 24 labelled
+cases run through the production retrieval and generation code and are
+published at **`/evals`** (methodology and metric definitions in
+[`evals/README.md`](evals/README.md)).
+
+Latest full run (`gpt-5-mini`, `text-embedding-3-small`, commit `bf47943`):
+
+| | Result | 95% CI |
+| --- | --- | --- |
+| Cases passing every hard check | **24 / 24** | |
+| Gold section retrieved (hit rate) | 21 / 21 | 85–100% |
+| Gold section recall | 32 / 33 | 85–99% |
+| Forbidden / superseded document retrieved | **0 / 24** | 0–14% |
+| Off-topic cases that correctly retrieved nothing | 2 / 2 | 34–100% |
+| Plans valid on the first attempt | 24 / 24 | 86–100% |
+| Recommended actions citing a retrieved source | 101 / 104 | 92–99% |
+| Citations to sources the model was never given | 0 / 151 | 0–2% |
+| Percentage/temperature figures not traceable to the case or sources | 2 / 21 | 3–29% |
+| Cited actions an LLM judge rated **fully** supported | 37 / 101 | 28–46% |
+| Cited actions rated at least partly supported | 100 / 101 | 95–100% |
+| Latency, median / p95 | 15.9 s / 20.7 s | |
+
+How to read it, including the parts that are less flattering:
+
+- **The hard guarantees held.** No superseded or wrong-department document was
+  retrieved, the trap case did not repeat the superseded figure, injected
+  instructions and guest identifiers were not echoed, and off-topic cases were
+  labelled as general guidance.
+- **"Partially supported" is the common verdict, not "fully".** Across four
+  full runs the fully-supported share ranged 37–43%. Inspecting the verdicts
+  shows the typical partial action follows a cited section and adds operational
+  detail (a duration, a logging step), which is often desirable but is not the
+  same as the policy saying it. Surfacing "what the policy says" separately from
+  "what this plan proposes" is the obvious next product improvement.
+- **The judge is the same model family as the generator**, so it may be
+  lenient, and it is a screening signal rather than ground truth.
+- **Untraceable figures are a proxy.** The two flagged here were a target the
+  plan proposed (100%); in an earlier run one was the model converting "one in
+  seven" to 14%. Neither is invented policy, which is why this is reported but
+  does not fail a case.
+- **Confidence is not discriminating.** 18 of 24 plans report High. The server
+  caps it when grounding is weak, but among grounded plans the model almost
+  always says High, so it should not be relied on.
+- **Small and synthetic.** 24 cases over 49 synthetic sections, labelled by one
+  person and written against the corpus. The first version of the benchmark was
+  too easy (a lexical embedder passed 20 of 20), which is why paraphrased cases
+  were added; the intervals above are wide.
+
+The retrieval benchmark also runs in CI with a free offline embedder as a
+regression gate for the metadata filtering and similarity floor.
+
 ## Knowledge base
 
 `knowledge/` holds synthetic Markdown documents with front matter (`department`,
@@ -131,6 +184,9 @@ numbered `###` section is one retrieval chunk and one citation. See
 ```bash
 npm run knowledge:ingest   # parse, embed and store (idempotent)
 npm run knowledge:probe    # show retrieval scores for sample cases
+npm run evals -- --mode retrieval --embedder hash        # benchmark, free
+npm run evals -- --mode full --embedder openai --judge   # full pipeline
+npm run evals:inspect -- hk-trap-escalation              # audit one case
 ```
 
 ## Tech stack
@@ -198,7 +254,7 @@ Next, in order:
 - [x] Seeded roles with server-enforced permissions, review decisions and per-user audit attribution
 - [x] Unit, API and end-to-end tests with CI
 - [x] Retrieval-grounded generation with verified source citations over synthetic SOPs
-- [ ] Evaluation suite for grounding, citations and schema compliance
+- [x] Evaluation suite for grounding, citations and schema compliance (published at `/evals`)
 - [ ] Public deployment
 
 ## Running locally
@@ -221,6 +277,7 @@ npm run typecheck
 npm run lint
 npm test          # unit, repository and API tests
 npm run e2e       # Playwright, full browser flow (see below)
+npm run evals     # the evaluation benchmark (see Evaluation)
 ```
 
 ## Testing
