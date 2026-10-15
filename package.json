@@ -15,7 +15,9 @@
     "e2e": "playwright test",
     "e2e:report": "playwright show-report",
     "knowledge:ingest": "tsx scripts/ingest-knowledge.ts",
-    "knowledge:probe": "tsx scripts/probe-retrieval.ts"
+    "knowledge:probe": "tsx scripts/probe-retrieval.ts",
+    "evals": "tsx scripts/run-evals.ts",
+    "evals:inspect": "tsx scripts/inspect-eval.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",

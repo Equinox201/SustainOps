@@ -290,6 +290,12 @@ export type GenerationResult = {
     promptVersion: string;
     generatedAt: string;
     latencyMs: number;
+    /** Model calls made: 2 means the first reply was unreadable. */
+    attempts: number;
+    /** Citations the model produced that were not in the retrieved set. */
+    citationsDropped: number;
+    inputTokens: number | null;
+    outputTokens: number | null;
   };
 };
 
@@ -450,6 +456,10 @@ export async function generateActionPlan({
         promptVersion: record.promptVersion,
         generatedAt: record.createdAt.toISOString(),
         latencyMs,
+        attempts: attempt,
+        citationsDropped,
+        inputTokens: modelCall?.inputTokens ?? null,
+        outputTokens: modelCall?.outputTokens ?? null,
       },
     };
   } catch (error) {
