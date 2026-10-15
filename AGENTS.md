@@ -1,6 +1,6 @@
-# ImpactFlow — contributor and agent guide
+# SustainOps — contributor and agent guide
 
-ImpactFlow is an AI-assisted sustainability operations platform for hospitality
+SustainOps is an AI-assisted sustainability operations platform for hospitality
 teams. It turns an operational sustainability issue (for example, laundry volume
 creeping above baseline) into a structured action plan that a human reviews,
 approves, tracks against KPIs, and eventually closes.

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ImpactFlow — AI-assisted sustainability operations",
+  title: "SustainOps — AI-assisted sustainability operations",
   description:
     "Turn hotel sustainability issues into structured, reviewed and trackable action plans.",
 };

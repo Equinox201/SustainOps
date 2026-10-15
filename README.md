@@ -1,6 +1,6 @@
-# ImpactFlow
+# SustainOps
 
-AI-assisted sustainability operations for hospitality teams. ImpactFlow turns an
+AI-assisted sustainability operations for hospitality teams. SustainOps turns an
 operational issue such as rising laundry volume, buffet food waste or low-occupancy
 energy use into a structured action plan that is reviewed by a person, approved,
 tracked against KPIs, and closed out.

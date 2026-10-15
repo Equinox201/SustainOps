@@ -18,7 +18,7 @@ export function AppHeader({
             AI-assisted sustainability operations
           </div>
           <h1 className="max-w-5xl text-3xl font-semibold tracking-normal text-stone-950 sm:text-4xl lg:text-5xl">
-            ImpactFlow
+            SustainOps
           </h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-stone-600 sm:text-lg">
             Turn sustainability issues into reviewed, trackable action plans

@@ -7,7 +7,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1).optional(),
   GENERATION_LIMIT_PER_HOUR: z.coerce.number().int().min(1).default(10),
   GENERATION_DAILY_CAP: z.coerce.number().int().min(1).default(200),
-  RATE_LIMIT_SALT: z.string().min(1).default("impactflow-dev-salt"),
+  RATE_LIMIT_SALT: z.string().min(1).default("sustainops-dev-salt"),
 });
 
 export type ServerEnv = z.infer<typeof envSchema>;
