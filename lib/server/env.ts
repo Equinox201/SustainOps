@@ -18,10 +18,20 @@ const envSchema = z.object({
   GENERATION_IP_LIMIT_PER_HOUR: z.coerce.number().int().min(1).default(5),
   GENERATION_DAILY_CAP: z.coerce.number().int().min(1).default(200),
   CRON_SECRET: z.string().min(16).optional(),
-  RATE_LIMIT_SALT: z.string().min(1).default("sustainops-dev-salt"),
+  RATE_LIMIT_SALT: z.string().min(1).optional(),
 });
 
 export type ServerEnv = z.infer<typeof envSchema>;
+
+/**
+ * Salt for hashing visitor addresses. A salt that is public in the repository
+ * would let anyone brute-force the small IPv4 space, so by default it is
+ * derived from SESSION_SECRET, which is already a deployment secret. The
+ * development fallback only applies when neither is configured.
+ */
+export function getRateLimitSalt(env: ServerEnv): string {
+  return env.RATE_LIMIT_SALT ?? env.SESSION_SECRET ?? "sustainops-dev-salt";
+}
 
 let cached: ServerEnv | null = null;
 

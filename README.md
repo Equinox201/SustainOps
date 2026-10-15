@@ -7,6 +7,9 @@ operational issue such as rising laundry volume, buffet food waste or low-occupa
 energy use into a structured action plan that is reviewed by a person, approved,
 tracked against KPIs, and closed out.
 
+**Live demo:** <https://sustainops.vercel.app> (sign in as any persona; data is
+fictional and resets nightly) · **Evaluation results:** <https://sustainops.vercel.app/evals>
+
 > All properties, policies and data in this project are fictional. It originated
 > as a take-home prototype and was rebuilt as a generic, standalone product.
 

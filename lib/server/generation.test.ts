@@ -386,3 +386,19 @@ describe("generation safety", () => {
     ).rejects.toMatchObject({ status: 503, code: "ai_not_configured" });
   });
 });
+
+describe("rate limit salt", () => {
+  it("is derived from the session secret unless set explicitly", async () => {
+    const { getRateLimitSalt } = await import("./env");
+
+    expect(
+      getRateLimitSalt({ ...env, RATE_LIMIT_SALT: "explicit", SESSION_SECRET: "s" }),
+    ).toBe("explicit");
+    expect(
+      getRateLimitSalt({ ...env, RATE_LIMIT_SALT: undefined, SESSION_SECRET: "from-session" }),
+    ).toBe("from-session");
+    expect(
+      getRateLimitSalt({ ...env, RATE_LIMIT_SALT: undefined, SESSION_SECRET: undefined }),
+    ).toBe("sustainops-dev-salt");
+  });
+});

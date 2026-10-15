@@ -42,7 +42,7 @@ Vercel Cron 20:00 UTC -> /api/cron/reset-demo
 | `GENERATION_DAILY_CAP` | `60` | Global ceiling on model calls per 24 hours. |
 | `GENERATION_LIMIT_PER_HOUR` | `15` | Per persona (personas are shared by every visitor). |
 | `GENERATION_IP_LIMIT_PER_HOUR` | `4` | Per visitor address. This is the limit that bounds one person. |
-| `RATE_LIMIT_SALT` | any random string | Salts the hashed addresses. |
+| `RATE_LIMIT_SALT` | optional | Salts the hashed addresses. Defaults to a value derived from `SESSION_SECRET`, so it needs no separate setting. |
 
 Everything else has a sensible default (`OPENAI_MODEL=gpt-5-mini`,
 `EMBEDDINGS_PROVIDER=openai`, similarity floor `0.45`). The knowledge base was
