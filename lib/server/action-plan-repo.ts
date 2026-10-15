@@ -25,6 +25,7 @@ import {
   type Permission,
   type Principal,
 } from "@/features/action-plans/domain/permissions";
+import { deepEqual } from "@/features/action-plans/domain/deep-equal";
 import { ApiError } from "./api";
 import { schema, type Database } from "./db";
 import type { ActionPlanRow } from "./db/schema";
@@ -291,9 +292,9 @@ async function recordContentChanges(
   }
 
   const hasKpi = Object.values(after.kpiProgress).some((v) => v.trim());
-  const kpiChanged =
-    JSON.stringify(after.kpiProgress) !==
-    JSON.stringify(before?.kpiProgress ?? null);
+  // Structural compare: jsonb does not preserve key order, so comparing
+  // serialized strings reports phantom changes.
+  const kpiChanged = !deepEqual(after.kpiProgress, before?.kpiProgress ?? null);
 
   if (hasKpi && kpiChanged) {
     await recordAudit(db, context, { ...base, eventType: "kpi_progress_updated" });

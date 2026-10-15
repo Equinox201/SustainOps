@@ -6,6 +6,7 @@ import { setDbForTesting, type Database } from "@/lib/server/db";
 import { createTestDb } from "@/lib/server/test-db";
 import { GET as listPlansRoute, POST as createPlanRoute } from "../action-plans/route";
 import { POST as transitionRoute } from "../action-plans/[id]/transition/route";
+import { POST as demoRoute } from "../action-plans/demo/route";
 import { POST as generateRoute } from "../action-plans/generate/route";
 import { GET as auditRoute } from "../audit-events/route";
 import { POST as loginRoute } from "../auth/login/route";
@@ -203,6 +204,33 @@ describe("authorization and validation", () => {
     );
 
     expect(response.status).toBe(400);
+  });
+
+  it("blocks cross-site state-changing requests, even without a body", async () => {
+    const cookie = await signIn("usr_maya_chen");
+    const forged = (headers: Record<string, string>) =>
+      new Request("http://localhost/api/action-plans/demo", {
+        method: "POST",
+        headers: { cookie, host: "localhost", ...headers },
+      });
+
+    const attacks: Record<string, string>[] = [
+      { "sec-fetch-site": "cross-site" },
+      { origin: "https://evil.example" },
+    ];
+
+    for (const headers of attacks) {
+      const response = await demoRoute(forged(headers), noParams);
+
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe("cross_site_request");
+    }
+
+    const sameOrigin = await demoRoute(
+      forged({ "sec-fetch-site": "same-origin", origin: "http://localhost" }),
+      noParams,
+    );
+    expect(sameOrigin.status).toBe(200);
   });
 
   it("rejects non-JSON content types (415)", async () => {
