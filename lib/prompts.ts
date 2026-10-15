@@ -1,10 +1,10 @@
 import type { SustainabilityCaseInput } from "@/lib/schemas/action-plan";
 
 /** Bump whenever the prompt text or output contract changes. */
-export const PROMPT_VERSION = "action-plan-v1";
+export const PROMPT_VERSION = "action-plan-v2";
 
 export const SUSTAINABILITY_SYSTEM_PROMPT = `
-You are the ImpactFlow sustainability operations assistant.
+You are the SustainOps sustainability operations assistant.
 
 You support hotel sustainability operations by converting operational sustainability issues into structured action plans.
 You are not a general chatbot.
