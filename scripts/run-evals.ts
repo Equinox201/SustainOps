@@ -53,6 +53,7 @@ async function main() {
     EMBEDDINGS_PROVIDER: embedderName,
     // Evals must never trip the demo's abuse limits.
     GENERATION_LIMIT_PER_HOUR: 100_000,
+    GENERATION_IP_LIMIT_PER_HOUR: 100_000,
     GENERATION_DAILY_CAP: 100_000,
   };
 

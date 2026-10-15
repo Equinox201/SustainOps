@@ -95,10 +95,20 @@ export const callOpenAI: ModelCaller = async ({
   };
 };
 
-/** Rate limits are per signed-in user; the key is salted and hashed. */
-export function getClientKey(actor: Principal, salt: string) {
+/**
+ * Rate-limit key for the caller's network address, salted and hashed so raw
+ * addresses are never stored. On Vercel the platform sets x-forwarded-for.
+ *
+ * Demo personas are shared by every visitor, so a per-user limit alone cannot
+ * stop one visitor from spending everyone's allowance: the address limit is
+ * what bounds an individual.
+ */
+export function getClientKey(request: Request, salt: string) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const address = forwarded?.split(",")[0]?.trim() || "unknown";
+
   return createHash("sha256")
-    .update(`${salt}:${actor.id}`)
+    .update(`${salt}:${address}`)
     .digest("hex")
     .slice(0, 32);
 }
@@ -242,25 +252,36 @@ function classifyModelError(error: unknown): ApiError {
 async function enforceLimits(
   db: Database,
   env: ServerEnv,
-  clientKey: string,
+  { clientKey, userId }: { clientKey: string; userId: string },
 ) {
   const now = Date.now();
+  const lastHour = gte(aiGenerations.createdAt, new Date(now - HOUR_MS));
 
-  const [perClient] = await db
+  const [perAddress] = await db
     .select({ value: count() })
     .from(aiGenerations)
-    .where(
-      and(
-        eq(aiGenerations.clientKey, clientKey),
-        gte(aiGenerations.createdAt, new Date(now - HOUR_MS)),
-      ),
-    );
+    .where(and(eq(aiGenerations.clientKey, clientKey), lastHour));
 
-  if (perClient.value >= env.GENERATION_LIMIT_PER_HOUR) {
+  if (perAddress.value >= env.GENERATION_IP_LIMIT_PER_HOUR) {
     throw new ApiError(
       429,
       "rate_limited",
-      "Generation limit reached. Please try again later.",
+      "You have reached the hourly generation limit for this demo. Please try again later.",
+      undefined,
+      { "retry-after": "3600" },
+    );
+  }
+
+  const [perUser] = await db
+    .select({ value: count() })
+    .from(aiGenerations)
+    .where(and(eq(aiGenerations.userId, userId), lastHour));
+
+  if (perUser.value >= env.GENERATION_LIMIT_PER_HOUR) {
+    throw new ApiError(
+      429,
+      "rate_limited",
+      "This demo persona has reached its hourly generation limit. Please try again later or switch persona.",
       undefined,
       { "retry-after": "3600" },
     );
@@ -333,7 +354,7 @@ export async function generateActionPlan({
     );
   }
 
-  await enforceLimits(db, env, clientKey);
+  await enforceLimits(db, env, { clientKey, userId: actor.id });
 
   const [record] = await db
     .insert(aiGenerations)

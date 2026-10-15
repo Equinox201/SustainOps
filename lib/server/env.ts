@@ -15,7 +15,9 @@ const envSchema = z.object({
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
   SESSION_SECRET: z.string().min(32).optional(),
   GENERATION_LIMIT_PER_HOUR: z.coerce.number().int().min(1).default(10),
+  GENERATION_IP_LIMIT_PER_HOUR: z.coerce.number().int().min(1).default(5),
   GENERATION_DAILY_CAP: z.coerce.number().int().min(1).default(200),
+  CRON_SECRET: z.string().min(16).optional(),
   RATE_LIMIT_SALT: z.string().min(1).default("sustainops-dev-salt"),
 });
 

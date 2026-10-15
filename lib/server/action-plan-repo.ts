@@ -592,3 +592,46 @@ export async function getPlanHistory(
 
   return readEvents(db, and(eq(auditEvents.planId, planId)), "asc", 200);
 }
+
+/**
+ * Returns the demo to a known state: removes every plan and its history, then
+ * restores the fictional demo plans. Generation records are kept because they
+ * back the rate limits. Used by the nightly job and the manager's reset.
+ */
+export async function replaceDemoPlans(
+  db: Database,
+  demoPlans: StoredActionPlan[],
+  {
+    requestId,
+    actorUserId,
+    trigger,
+  }: {
+    requestId: string | null;
+    actorUserId: string | null;
+    trigger: "manual" | "scheduled";
+  },
+): Promise<{ removed: number; restored: number }> {
+  return db.transaction(async (tx) => {
+    const removed = await tx
+      .delete(actionPlans)
+      .returning({ id: actionPlans.id });
+
+    await tx.delete(auditEvents);
+
+    if (demoPlans.length > 0) {
+      await tx.insert(actionPlans).values(demoPlans.map(planToRow));
+    }
+
+    await tx.insert(auditEvents).values({
+      eventType: "demo_reset",
+      planId: null,
+      department: null,
+      actorUserId,
+      actorRole: null,
+      requestId,
+      metadata: { trigger, removed: removed.length, restored: demoPlans.length },
+    });
+
+    return { removed: removed.length, restored: demoPlans.length };
+  });
+}

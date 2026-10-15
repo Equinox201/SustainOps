@@ -131,6 +131,7 @@ const env = {
   SESSION_SECRET: "e2e-session-secret-that-is-long-enough-123456",
   EMBEDDINGS_PROVIDER: "hash",
   GENERATION_LIMIT_PER_HOUR: "1000",
+  GENERATION_IP_LIMIT_PER_HOUR: "1000",
   GENERATION_DAILY_CAP: "1000",
 };
 const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");

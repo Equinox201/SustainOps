@@ -13,6 +13,7 @@ import {
   getPlanHistory,
   listAuditEvents,
   listPlans,
+  replaceDemoPlans,
   seedDemoPlans,
   transitionPlanState,
   updatePlan,
@@ -575,6 +576,74 @@ describe("authorization", () => {
         403,
       );
     }
+
+    expect(await listPlans(db, MAYA)).toHaveLength(1);
+  });
+});
+
+describe("demo reset", () => {
+  it("replaces everything with the demo plans and keeps generation records", async () => {
+    await createPlan(db, makeContent(), as(MAYA));
+    await createPlan(db, makeContent({ owner: "Another" }), as(MAYA));
+    await db.insert(schema.aiGenerations).values({
+      requestId: "r",
+      clientKey: "k",
+      model: "m",
+      promptVersion: "v",
+    });
+
+    const result = await replaceDemoPlans(db, demoActionPlans, {
+      requestId: "reset-1",
+      actorUserId: MAYA.id,
+      trigger: "manual",
+    });
+
+    expect(result).toEqual({ removed: 2, restored: demoActionPlans.length });
+
+    const plans = await listPlans(db, MAYA);
+    expect(plans.map((plan) => plan.id).sort()).toEqual(
+      demoActionPlans.map((plan) => plan.id).sort(),
+    );
+
+    // History is wiped except for the record of the reset itself.
+    const events = await listAuditEvents(db, MAYA);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      eventType: "demo_reset",
+      actor: { id: MAYA.id },
+    });
+
+    // Rate limiting depends on these surviving the reset.
+    const generations = await db.select().from(schema.aiGenerations);
+    expect(generations).toHaveLength(1);
+  });
+
+  it("records scheduled resets without a user", async () => {
+    await replaceDemoPlans(db, demoActionPlans, {
+      requestId: null,
+      actorUserId: null,
+      trigger: "scheduled",
+    });
+
+    const [event] = await listAuditEvents(db, MAYA);
+    expect(event).toMatchObject({ eventType: "demo_reset", actor: null });
+  });
+
+  it("is atomic: a failure leaves existing plans untouched", async () => {
+    await createPlan(db, makeContent(), as(MAYA));
+
+    const broken = [
+      ...demoActionPlans,
+      { ...demoActionPlans[0] }, // duplicate primary key
+    ];
+
+    await expect(
+      replaceDemoPlans(db, broken, {
+        requestId: null,
+        actorUserId: null,
+        trigger: "scheduled",
+      }),
+    ).rejects.toThrow();
 
     expect(await listPlans(db, MAYA)).toHaveLength(1);
   });

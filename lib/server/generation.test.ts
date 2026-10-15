@@ -35,6 +35,8 @@ const env: ServerEnv = {
   DATABASE_POOL_MAX: 5,
   SESSION_SECRET: undefined,
   GENERATION_LIMIT_PER_HOUR: 2,
+  GENERATION_IP_LIMIT_PER_HOUR: 5,
+  CRON_SECRET: undefined,
   GENERATION_DAILY_CAP: 100,
   RATE_LIMIT_SALT: "salt",
 };
@@ -330,18 +332,43 @@ describe("generation safety", () => {
     });
   });
 
-  it("applies the per-user hourly limit", async () => {
+  it("applies the per-persona hourly limit across visitors", async () => {
     const model = reply(modelOutput([["S1"]]));
-    await run(model);
-    await run(model);
+    // Different addresses, same shared persona: the persona cap still bites.
+    await run(model, {}, energyCase, "visitor-a");
+    await run(model, {}, energyCase, "visitor-b");
 
-    await expect(run(model)).rejects.toMatchObject({
-      status: 429,
-      code: "rate_limited",
-    });
+    await expect(
+      run(model, {}, energyCase, "visitor-c"),
+    ).rejects.toMatchObject({ status: 429, code: "rate_limited" });
 
     const [{ value }] = await db.select({ value: count() }).from(schema.aiGenerations);
     expect(value).toBe(2);
+  });
+
+  it("applies the per-address hourly limit across personas", async () => {
+    const model = reply(modelOutput([["S1"]]));
+    const other: Principal = { ...MAYA, id: "usr_daniel_ortiz" };
+    const asPersona = (actor: Principal) =>
+      generateActionPlan({
+        db,
+        env: { ...env, GENERATION_IP_LIMIT_PER_HOUR: 2, GENERATION_LIMIT_PER_HOUR: 50 },
+        input: energyCase,
+        planId: null,
+        actor,
+        clientKey: "same-address",
+        requestId: "req-1",
+        getEmbedder: () => hashEmbedder,
+        callModel: model,
+      });
+
+    await asPersona(MAYA);
+    await asPersona(other);
+
+    // A third persona from the same address is still refused.
+    await expect(
+      asPersona({ ...MAYA, id: "usr_priya_nair" }),
+    ).rejects.toMatchObject({ status: 429, code: "rate_limited" });
   });
 
   it("applies the global daily cap", async () => {

@@ -7,6 +7,9 @@ import { getEmbedder } from "@/lib/server/embeddings";
 import { generateActionPlan, getClientKey } from "@/lib/server/generation";
 import { requirePrincipal } from "@/lib/server/session";
 
+// Generation can take 20-45s with a retry; the platform default is shorter.
+export const maxDuration = 60;
+
 export const POST = withApi(async (request, { requestId }) => {
   const db = getDb();
   const actor = await requirePrincipal(request, db);
@@ -33,7 +36,7 @@ export const POST = withApi(async (request, { requestId }) => {
     planId: planId ?? null,
     actor,
     getEmbedder: () => getEmbedder(env),
-    clientKey: getClientKey(actor, env.RATE_LIMIT_SALT),
+    clientKey: getClientKey(request, env.RATE_LIMIT_SALT),
     requestId,
   });
 
