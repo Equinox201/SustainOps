@@ -17,7 +17,8 @@ Vercel Cron 20:00 UTC -> /api/cron/reset-demo
 2. In Vercel: **Add New → Project**, import `Equinox201/SustainOps`. Vercel will
    ask to install its GitHub app on the repository; allow it.
 3. Framework preset is detected (Next.js). Leave build settings alone;
-   `vercel.json` pins the region and the cron.
+   `vercel.json` pins the region and the cron, and `package.json` pins Node 22
+   (the version CI tests on; Vercel otherwise defaults to the newest).
 4. Add the environment variables below **before** the first deploy
    (Production and Preview).
 5. Deploy.
