@@ -23,8 +23,7 @@ export function getEditorCapabilities(user: Principal, draft: EditorDraft) {
     canEditNotes,
     canGenerate: can(user, "plan:generate") && !draft.approved,
     canSave: hasPlan && (canEditCore || canEditKpi || canEditNotes),
-    canApprove:
-      can(user, "plan:approve", scope) && hasPlan && isSaved && open,
+    canApprove: can(user, "plan:approve", scope) && hasPlan && isSaved && open,
     canRequestChanges:
       can(user, "plan:request_changes", scope) && hasPlan && isSaved && open,
     canComplete:

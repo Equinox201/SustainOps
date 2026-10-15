@@ -50,9 +50,18 @@ const aiPlan = {
   // The fake model cites S1 for every action, as a compliant model would.
   // The server keeps only citations that match what was really retrieved.
   recommendedOperationalActions: [
-    { action: "Assign rooms by floor when occupancy is low.", sourceIds: ["S1"] },
-    { action: "Hold a daily Front Office and Engineering check-in.", sourceIds: ["S1"] },
-    { action: "Escalate any guest comfort complaint immediately.", sourceIds: ["S1"] },
+    {
+      action: "Assign rooms by floor when occupancy is low.",
+      sourceIds: ["S1"],
+    },
+    {
+      action: "Hold a daily Front Office and Engineering check-in.",
+      sourceIds: ["S1"],
+    },
+    {
+      action: "Escalate any guest comfort complaint immediately.",
+      sourceIds: ["S1"],
+    },
   ],
   staffMicroTrainingMessage:
     "Every towel left on the rack is a towel we do not wash. Place the card, thank the guest.",

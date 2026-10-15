@@ -12,7 +12,10 @@ export function CaseForm({
   onChange: (value: SustainabilityCaseInput) => void;
   disabled?: boolean;
 }) {
-  function updateField(field: keyof SustainabilityCaseInput, nextValue: string) {
+  function updateField(
+    field: keyof SustainabilityCaseInput,
+    nextValue: string,
+  ) {
     onChange({
       ...value,
       [field]: nextValue,

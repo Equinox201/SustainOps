@@ -6,6 +6,7 @@ import type { Principal } from "@/features/action-plans/domain/permissions";
 import type { Database } from "./db";
 import { schema } from "./db";
 import { ApiError } from "./api";
+import * as repository from "./action-plan-repo";
 import {
   createPlan,
   deletePlan,
@@ -15,8 +16,6 @@ import {
   listPlans,
   replaceDemoPlans,
   seedDemoPlans,
-  transitionPlanState,
-  updatePlan,
 } from "./action-plan-repo";
 import { createTestDb } from "./test-db";
 
@@ -87,6 +86,41 @@ async function expectApiError(
 }
 
 let db: Database;
+
+/** The plan's current version, as a client that just loaded it would send. */
+async function currentVersion(id: string) {
+  const [row] = await db
+    .select({ version: schema.actionPlans.version })
+    .from(schema.actionPlans)
+    .where(eq(schema.actionPlans.id, id));
+
+  return row?.version ?? 1;
+}
+
+// Most tests are about rules other than concurrency, so they act on the
+// freshest copy. Tests of stale writes call the repository directly.
+const updatePlan = async (
+  database: Database,
+  id: string,
+  content: PlanContent,
+  context: ReturnType<typeof as>,
+) =>
+  repository.updatePlan(database, id, content, await currentVersion(id), context);
+
+const transitionPlanState = async (
+  database: Database,
+  id: string,
+  event: Parameters<typeof repository.transitionPlanState>[2],
+  options: { content?: PlanContent; comment?: string },
+  context: ReturnType<typeof as>,
+) =>
+  repository.transitionPlanState(
+    database,
+    id,
+    event,
+    { ...options, expectedVersion: await currentVersion(id) },
+    context,
+  );
 
 beforeAll(async () => {
   db = await createTestDb();
@@ -646,5 +680,108 @@ describe("demo reset", () => {
     ).rejects.toThrow();
 
     expect(await listPlans(db, MAYA)).toHaveLength(1);
+  });
+});
+
+describe("concurrent edits", () => {
+  it("starts at version 1 and increments on every write", async () => {
+    const plan = await createPlan(db, makeContent(), as(MAYA));
+    expect(plan.version).toBe(1);
+
+    const edited = await repository.updatePlan(
+      db,
+      plan.id,
+      makeContent({ priority: "Low" }),
+      1,
+      as(MAYA),
+    );
+    expect(edited.version).toBe(2);
+
+    const approved = await repository.transitionPlanState(
+      db,
+      plan.id,
+      "approve",
+      { expectedVersion: 2 },
+      as(DANIEL),
+    );
+    expect(approved.version).toBe(3);
+  });
+
+  it("rejects a save made against an out-of-date copy and changes nothing", async () => {
+    const plan = await createPlan(db, makeContent(), as(MAYA));
+
+    // Priya's colleague saves first...
+    await repository.updatePlan(
+      db,
+      plan.id,
+      makeContent({ priority: "Low" }),
+      1,
+      as(MAYA),
+    );
+
+    // ...so a save still based on version 1 must not overwrite it.
+    await expectApiError(
+      repository.updatePlan(
+        db,
+        plan.id,
+        makeContent({ priority: "High", owner: "Overwritten" }),
+        1,
+        as(MAYA),
+      ),
+      "stale_write",
+      409,
+    );
+
+    const stored = await getPlan(db, plan.id, MAYA);
+    expect(stored).toMatchObject({ priority: "Low", owner: "Jordan Lee", version: 2 });
+  });
+
+  it("reports the current version so the client can recover", async () => {
+    const plan = await createPlan(db, makeContent(), as(MAYA));
+    await repository.updatePlan(db, plan.id, makeContent({ priority: "Low" }), 1, as(MAYA));
+
+    await expect(
+      repository.updatePlan(db, plan.id, makeContent(), 1, as(MAYA)),
+    ).rejects.toMatchObject({
+      details: { currentVersion: 2, yourVersion: 1 },
+    });
+  });
+
+  it("rejects a stale approval, so a reviewer cannot approve unseen edits", async () => {
+    const plan = await createPlan(db, makeContent(), as(MAYA));
+    // The reviewer loaded version 1; the author then changes the plan.
+    await repository.updatePlan(
+      db,
+      plan.id,
+      makeContent({ owner: "Changed After Review Started" }),
+      1,
+      as(MAYA),
+    );
+
+    await expectApiError(
+      repository.transitionPlanState(
+        db,
+        plan.id,
+        "approve",
+        { expectedVersion: 1 },
+        as(DANIEL),
+      ),
+      "stale_write",
+      409,
+    );
+    expect((await getPlan(db, plan.id, MAYA)).approved).toBe(false);
+  });
+
+  it("lets exactly one of two simultaneous saves win", async () => {
+    const plan = await createPlan(db, makeContent(), as(MAYA));
+
+    const results = await Promise.allSettled([
+      repository.updatePlan(db, plan.id, makeContent({ priority: "Low" }), 1, as(MAYA)),
+      repository.updatePlan(db, plan.id, makeContent({ priority: "Medium" }), 1, as(MAYA)),
+    ]);
+
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+    expect((await getPlan(db, plan.id, MAYA)).version).toBe(2);
   });
 });

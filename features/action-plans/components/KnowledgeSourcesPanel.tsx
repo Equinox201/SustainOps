@@ -9,12 +9,19 @@ const STATUS_STYLES: Record<string, string> = {
 export function KnowledgeSourcesPanel({
   documents,
   error,
+  isLoading,
 }: {
   documents: KnowledgeDocumentInfo[];
   error: string | null;
+  isLoading: boolean;
 }) {
-  const approved = documents.filter((document) => document.status === "approved");
-  const sections = approved.reduce((sum, document) => sum + document.chunkCount, 0);
+  const approved = documents.filter(
+    (document) => document.status === "approved",
+  );
+  const sections = approved.reduce(
+    (sum, document) => sum + document.chunkCount,
+    0,
+  );
 
   return (
     <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
@@ -38,11 +45,18 @@ export function KnowledgeSourcesPanel({
         ) : null}
       </div>
 
-      {error ? (
-        <p className="mt-4 text-sm text-rose-900">{error}</p>
+      {error ? <p className="mt-4 text-sm text-rose-900">{error}</p> : null}
+
+      {isLoading ? (
+        <p
+          role="status"
+          className="mt-5 rounded-lg border border-dashed border-stone-300 px-4 py-4 text-sm text-stone-600"
+        >
+          Loading knowledge sources…
+        </p>
       ) : null}
 
-      {documents.length === 0 && !error ? (
+      {!isLoading && documents.length === 0 && !error ? (
         <p className="mt-5 rounded-lg border border-dashed border-stone-300 px-4 py-4 text-sm text-stone-600">
           No documents ingested yet. Run <code>npm run knowledge:ingest</code>.
         </p>

@@ -66,6 +66,8 @@ export type StoredActionPlan = {
   nextReviewDate: string;
   readinessChecklist: ReadinessChecklist;
   kpiProgress: KPIProgress;
+  /** Concurrency token; sent back with every edit. */
+  version: number;
   approved: boolean;
   completed: boolean;
   reviewStatus: "none" | "changes_requested";

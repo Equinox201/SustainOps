@@ -13,7 +13,9 @@ export function EditorSummary({
   successMessage,
   isGenerating,
   isSaving,
+  hasConflict,
   onGenerate,
+  onReloadLatest,
   onRequestChanges,
 }: {
   draft: EditorDraft;
@@ -22,7 +24,9 @@ export function EditorSummary({
   successMessage: string | null;
   isGenerating: boolean;
   isSaving: boolean;
+  hasConflict: boolean;
   onGenerate: () => void;
+  onReloadLatest: () => void;
   onRequestChanges: (comment: string) => void;
 }) {
   return (
@@ -46,7 +50,16 @@ export function EditorSummary({
           role="alert"
           className="mt-5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-900"
         >
-          {errorMessage}
+          <p>{errorMessage}</p>
+          {hasConflict ? (
+            <button
+              className="mt-2 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-sm font-semibold text-rose-900 hover:bg-rose-100"
+              type="button"
+              onClick={onReloadLatest}
+            >
+              Load the latest version (discards your unsaved edits)
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -56,15 +69,10 @@ export function EditorSummary({
         </div>
       ) : null}
 
-      <div className="mt-5 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700">
-        <p>AI recommendations require human review before implementation.</p>
-        <p>Approval is gated by operational readiness and given by a reviewer.</p>
-        <p>
-          AI recommendations must be assigned to an owner before implementation.
-        </p>
-        <p>Approved plans are locked to protect the operational record.</p>
-        <p>Implementation notes are available after approval.</p>
-      </div>
+      <p className="mt-5 text-sm leading-6 text-stone-600">
+        AI recommendations are decision support: a reviewer must approve before
+        anything is implemented, and approved plans are locked.
+      </p>
 
       {draft.approved ? <LockedNotice /> : null}
 

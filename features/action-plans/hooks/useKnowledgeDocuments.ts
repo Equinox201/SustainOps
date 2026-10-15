@@ -5,6 +5,7 @@ import type { KnowledgeDocumentInfo } from "../types";
 export function useKnowledgeDocuments(enabled: boolean) {
   const [documents, setDocuments] = useState<KnowledgeDocumentInfo[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
@@ -21,6 +22,7 @@ export function useKnowledgeDocuments(enabled: boolean) {
       if (result.ok) {
         setDocuments(result.data);
         setError(null);
+        setHasLoaded(true);
       } else {
         setError(result.message);
       }
@@ -31,5 +33,9 @@ export function useKnowledgeDocuments(enabled: boolean) {
     };
   }, [enabled]);
 
-  return { documents, error };
+  // True only while a request is genuinely in flight, so an empty list is
+  // never shown (or counted as zero) before the data has arrived.
+  const isLoading = enabled && !hasLoaded && error === null;
+
+  return { documents, error, isLoading };
 }

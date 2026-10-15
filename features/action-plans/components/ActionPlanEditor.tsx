@@ -10,7 +10,6 @@ import { EditorToolbar } from "./EditorToolbar";
 import { GeneratedPlan } from "./GeneratedPlan";
 import { ImplementationNotes } from "./ImplementationNotes";
 import { KpiPanel } from "./KpiPanel";
-import { LockedNotice } from "./LockedNotice";
 import { PlanHistory } from "./PlanHistory";
 import { ReadinessChecklist } from "./ReadinessChecklist";
 import { primaryButtonClassName } from "./form-styles";
@@ -23,6 +22,8 @@ type ActionPlanEditorProps = {
   successMessage: string | null;
   isGenerating: boolean;
   isSaving: boolean;
+  hasConflict: boolean;
+  onReloadLatest: () => void;
   onBack: () => void;
   onDraftChange: (draft: EditorDraft) => void;
   onPanelChange: (panel: EditorPanel) => void;
@@ -42,6 +43,8 @@ export function ActionPlanEditor({
   successMessage,
   isGenerating,
   isSaving,
+  hasConflict,
+  onReloadLatest,
   onBack,
   onDraftChange,
   onPanelChange,
@@ -81,7 +84,9 @@ export function ActionPlanEditor({
         successMessage={successMessage}
         isGenerating={isGenerating}
         isSaving={isSaving}
+        hasConflict={hasConflict}
         onGenerate={onGenerate}
+        onReloadLatest={onReloadLatest}
         onRequestChanges={onRequestChanges}
       />
 
@@ -92,7 +97,6 @@ export function ActionPlanEditor({
           isOpen={activePanel === "case"}
           onToggle={() => togglePanel("case", "plan")}
         >
-          {isApprovedLocked ? <LockedNotice className="mb-5" /> : null}
           <CaseForm
             value={draft.sustainabilityCase}
             disabled={caseReadOnly}
@@ -139,7 +143,6 @@ export function ActionPlanEditor({
         >
           {draft.actionPlan ? (
             <>
-              {isApprovedLocked ? <LockedNotice className="mb-5" /> : null}
               {capabilities.canSave ? (
                 <div className="mb-5 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>

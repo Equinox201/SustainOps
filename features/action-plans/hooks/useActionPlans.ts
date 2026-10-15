@@ -63,10 +63,15 @@ export function useActionPlans() {
   }, []);
 
   const savePlan = useCallback(
-    async (content: PlanContent, id: string | null) => {
-      const result = id
-        ? await api.updatePlan(id, content)
-        : await api.createPlan(content);
+    async (
+      content: PlanContent,
+      id: string | null,
+      expectedVersion: number | null,
+    ) => {
+      const result =
+        id && expectedVersion !== null
+          ? await api.updatePlan(id, content, expectedVersion)
+          : await api.createPlan(content);
 
       if (result.ok) {
         upsertLocal(result.data);
@@ -81,7 +86,11 @@ export function useActionPlans() {
     async (
       id: string,
       event: LifecycleEvent,
-      options: { content?: PlanContent; comment?: string } = {},
+      options: {
+        expectedVersion: number;
+        content?: PlanContent;
+        comment?: string;
+      },
     ) => {
       const result = await api.transitionPlan(id, event, options);
 
@@ -98,9 +107,7 @@ export function useActionPlans() {
     const result = await api.deletePlan(id);
 
     if (result.ok) {
-      setPlans((currentPlans) =>
-        currentPlans.filter((plan) => plan.id !== id),
-      );
+      setPlans((currentPlans) => currentPlans.filter((plan) => plan.id !== id));
     }
 
     return result;

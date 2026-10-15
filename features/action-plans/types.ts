@@ -28,6 +28,8 @@ export type EditorDraft = {
   nextReviewDate: string;
   readinessChecklist: ReadinessChecklist;
   kpiProgress: KPIProgress;
+  /** Version of the saved plan this draft was loaded from (null if unsaved). */
+  version: number | null;
   approved: boolean;
   completed: boolean;
   reviewStatus: StoredActionPlan["reviewStatus"];

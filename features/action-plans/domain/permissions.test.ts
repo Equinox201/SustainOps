@@ -54,10 +54,7 @@ describe("plan scope", () => {
   it("scopes department managers to their department only", () => {
     expect(canAccessPlan(engineering, plan)).toBe(true);
     expect(
-      canAccessPlan(
-        { ...engineering, department: "Food & Beverage" },
-        plan,
-      ),
+      canAccessPlan({ ...engineering, department: "Food & Beverage" }, plan),
     ).toBe(false);
     expect(canAccessPlan(manager, plan)).toBe(true);
     expect(canAccessPlan(reviewer, plan)).toBe(true);

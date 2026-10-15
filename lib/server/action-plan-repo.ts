@@ -142,6 +142,7 @@ function rowToPlan(row: ActionPlanRow, refs: UserRefs): StoredActionPlan {
     nextReviewDate: row.nextReviewDate ?? "",
     readinessChecklist: row.readinessChecklist,
     kpiProgress: row.kpiProgress,
+    version: row.version,
     approved: row.approved,
     completed: row.completed,
     reviewStatus,
@@ -174,6 +175,7 @@ function planToRow(plan: StoredActionPlan): typeof actionPlans.$inferInsert {
     readinessChecklist: plan.readinessChecklist,
     kpiProgress: plan.kpiProgress,
     actionNotes: plan.actionNotes,
+    version: plan.version,
     approved: plan.approved,
     completed: plan.completed,
     reviewStatus: plan.reviewStatus,
@@ -252,10 +254,35 @@ async function lockPlan(
   return plan;
 }
 
-async function persistPlan(db: Database, plan: StoredActionPlan) {
-  const { id, ...values } = planToRow(plan);
+/**
+ * Writes the plan and bumps its version, returning the stored copy. Callers
+ * hold the row lock and have already checked the caller's expected version.
+ */
+async function persistPlan(
+  db: Database,
+  plan: StoredActionPlan,
+): Promise<StoredActionPlan> {
+  const next = { ...plan, version: plan.version + 1 };
+  const { id, ...values } = planToRow(next);
   void id;
   await db.update(actionPlans).set(values).where(eq(actionPlans.id, plan.id));
+
+  return next;
+}
+
+/**
+ * Rejects an edit made against an out-of-date copy, so two people editing the
+ * same plan cannot silently overwrite each other.
+ */
+function assertFresh(existing: StoredActionPlan, expectedVersion: number) {
+  if (existing.version !== expectedVersion) {
+    throw new ApiError(
+      409,
+      "stale_write",
+      "This plan was changed by someone else since you opened it. Load the latest version before saving.",
+      { currentVersion: existing.version, yourVersion: expectedVersion },
+    );
+  }
 }
 
 /** Checks the permissions an edit needs, based on which fields it changes. */
@@ -372,6 +399,7 @@ export async function updatePlan(
   db: Database,
   id: string,
   content: PlanContent,
+  expectedVersion: number,
   context: WriteContext,
 ): Promise<StoredActionPlan> {
   requirePermission(context.actor, "plan:view");
@@ -379,6 +407,7 @@ export async function updatePlan(
   return db.transaction(async (tx) => {
     const existing = await lockPlan(tx, id, context.actor);
 
+    assertFresh(existing, expectedVersion);
     authorizeContentChange(context.actor, existing, content);
 
     const generatedAt = await resolveGeneration(tx, content.generationId);
@@ -389,15 +418,15 @@ export async function updatePlan(
       }),
     );
 
-    await persistPlan(tx, plan);
+    const saved = await persistPlan(tx, plan);
     await recordAudit(tx, context, {
       eventType: "action_plan_updated",
-      planId: plan.id,
-      department: plan.sustainabilityCase.department,
+      planId: saved.id,
+      department: saved.sustainabilityCase.department,
     });
-    await recordContentChanges(tx, context, existing, plan);
+    await recordContentChanges(tx, context, existing, saved);
 
-    return plan;
+    return saved;
   });
 }
 
@@ -409,7 +438,11 @@ export async function transitionPlanState(
   db: Database,
   id: string,
   event: LifecycleEvent,
-  options: { content?: PlanContent; comment?: string },
+  options: {
+    expectedVersion: number;
+    content?: PlanContent;
+    comment?: string;
+  },
   context: WriteContext,
 ): Promise<StoredActionPlan> {
   requirePermission(context.actor, TRANSITION_PERMISSION[event]);
@@ -418,6 +451,7 @@ export async function transitionPlanState(
     const existing = await lockPlan(tx, id, context.actor);
 
     requirePermission(context.actor, TRANSITION_PERMISSION[event], existing);
+    assertFresh(existing, options.expectedVersion);
 
     const now = new Date().toISOString();
     let current = existing;
@@ -441,16 +475,16 @@ export async function transitionPlanState(
       }),
     );
 
-    await persistPlan(tx, plan);
+    const saved = await persistPlan(tx, plan);
     await recordAudit(tx, context, {
       eventType: TRANSITION_AUDIT_EVENT[event],
-      planId: plan.id,
-      department: plan.sustainabilityCase.department,
+      planId: saved.id,
+      department: saved.sustainabilityCase.department,
       metadata: options.comment ? { comment: options.comment } : undefined,
     });
-    await recordContentChanges(tx, context, existing, plan);
+    await recordContentChanges(tx, context, existing, saved);
 
-    return plan;
+    return saved;
   });
 }
 

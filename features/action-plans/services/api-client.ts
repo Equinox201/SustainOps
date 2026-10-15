@@ -15,8 +15,7 @@ export type ApiResult<T> = { ok: true; data: T } | ApiFailure;
 const NETWORK_FAILURE: ApiFailure = {
   ok: false,
   code: "network_error",
-  message:
-    "The request failed. Check your connection and try again.",
+  message: "The request failed. Check your connection and try again.",
 };
 
 /** Calls the JSON API and validates the response against a schema. */
@@ -33,7 +32,8 @@ export async function apiRequest<T>(
   try {
     response = await fetch(path, {
       method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      headers:
+        body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {

@@ -4,12 +4,37 @@ import { getEditorCapabilities } from "./capabilities";
 import { planToDraft } from "./lifecycle";
 import type { Principal } from "./permissions";
 
-const manager: Principal = { id: "m", name: "M", role: "sustainability_manager", department: null };
-const reviewer: Principal = { id: "r", name: "R", role: "reviewer", department: null };
-const engineering: Principal = { id: "e", name: "E", role: "department_manager", department: "Engineering" };
-const procurement: Principal = { id: "p", name: "P", role: "department_manager", department: "Procurement" };
+const manager: Principal = {
+  id: "m",
+  name: "M",
+  role: "sustainability_manager",
+  department: null,
+};
+const reviewer: Principal = {
+  id: "r",
+  name: "R",
+  role: "reviewer",
+  department: null,
+};
+const engineering: Principal = {
+  id: "e",
+  name: "E",
+  role: "department_manager",
+  department: "Engineering",
+};
+const procurement: Principal = {
+  id: "p",
+  name: "P",
+  role: "department_manager",
+  department: "Procurement",
+};
 
-const base = planToDraft({ ...demoActionPlans[0], generationId: null, approved: false, completed: false });
+const base = planToDraft({
+  ...demoActionPlans[0],
+  generationId: null,
+  approved: false,
+  completed: false,
+});
 const approved = { ...base, approved: true };
 const completed = { ...base, approved: true, completed: true };
 

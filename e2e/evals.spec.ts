@@ -19,7 +19,9 @@ test.describe("evaluation page", () => {
     await expect(page.getByText(/95% CI/).first()).toBeVisible();
 
     // Every benchmark case is listed with a verdict.
-    await expect(page.getByRole("columnheader", { name: "Result" })).toBeVisible();
+    await expect(
+      page.getByRole("columnheader", { name: "Result" }),
+    ).toBeVisible();
     await expect(page.getByText("hk-trap-escalation")).toBeVisible();
   });
 });

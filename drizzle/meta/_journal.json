@@ -36,6 +36,13 @@
       "when": 1792034490279,
       "tag": "0004_grounded_plan_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792055427377,
+      "tag": "0005_plan_version",
+      "breakpoints": true
     }
   ]
 }
