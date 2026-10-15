@@ -55,11 +55,89 @@ and enforced on the server, inside the same transaction as the change.
 > request. `getSessionPrincipal` is the single seam to replace with a real
 > identity provider (Supabase Auth or OIDC) without touching authorization.
 
+## Grounded generation
+
+The model is not asked to recall policy. It is given approved sections and must
+cite them, and the server decides what survives.
+
+```
+Sustainability case
+      |
+      v
+Eligibility (metadata)      status = approved
+                            department = case's, or "All departments"
+                            vectors from the same embedding model
+      |
+      v
+Rank by cosine similarity   pgvector, top 6, similarity floor 0.45
+      |
+      v
+Structured generation       sections passed as [S1]..[Sn]; strict JSON schema
+      |
+      v
+Server verification         unknown source ids are dropped
+                            grounding status derived by the server, not the model
+                            confidence capped: ungrounded -> Low, partial -> Medium
+      |
+      v
+Stored with the plan        frozen snapshot of the sources actually retrieved
+```
+
+What a reviewer sees: each recommended action with the exact section it relies
+on (for example "Housekeeping Resource Efficiency SOP v2 §4.3"), a banner saying
+whether the plan is grounded, partly grounded or general guidance only, and the
+retrieved excerpts.
+
+Design decisions:
+
+- **Metadata before similarity.** A food-waste case can never retrieve the
+  housekeeping SOP, however similar the wording, because eligibility is decided
+  by department and approval status first.
+- **Superseded documents are kept but invisible.** The v1 housekeeping SOP
+  exists in the corpus specifically to prove retrieval ignores it.
+- **Citations are verified, not trusted.** A model that cites a source it was
+  never given has that citation removed, and a plan claiming High confidence
+  with no valid evidence is forced to Low. The count of dropped citations is
+  recorded per generation.
+- **Weak matches are not passed off as evidence.** Below the similarity floor
+  the plan says it is general guidance, instead of padding with loosely related
+  policy.
+- **Sources are frozen into the plan.** Editing a document later does not
+  rewrite what an approved plan relied on.
+- **Retrieval failure degrades visibly.** If retrieval cannot run, generation
+  still succeeds but the plan is labelled ungrounded.
+
+**Measured, not guessed.** The similarity floor comes from running
+`npm run knowledge:probe` against the real embedding model
+(`text-embedding-3-small`) on this corpus: relevant sections scored 0.555 to
+0.77, wrong-department off-topic text scored about 0.22, and the hardest
+off-topic case (right department, wrong subject) scored at most 0.344. A first
+guess of 0.28 would have passed that last case through; 0.45 sits in the gap.
+
+Known limits: the corpus is small (7 documents, 49 sections) and synthetic; the
+floor was calibrated on 6 probe cases, so it is a measured starting point, not
+a validated threshold (an evaluation suite is next); retrieval is dense-only
+with no reranking; a document's `region` is stored but not yet used as a
+filter. An offline hash embedder keeps tests and CI free, but it has no
+semantic knowledge and is not a substitute for a real model.
+
+## Knowledge base
+
+`knowledge/` holds synthetic Markdown documents with front matter (`department`,
+`document_type`, `region`, `version`, `status`) and numbered sections. One
+numbered `###` section is one retrieval chunk and one citation. See
+[`knowledge/README.md`](knowledge/README.md).
+
+```bash
+npm run knowledge:ingest   # parse, embed and store (idempotent)
+npm run knowledge:probe    # show retrieval scores for sample cases
+```
+
 ## Tech stack
 
 Next.js 16 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS 4 ·
-OpenAI Responses API with strict structured output · Zod · Drizzle ORM ·
-Supabase Postgres · Vitest (+ PGlite)
+OpenAI Responses API (strict structured output) and embeddings · pgvector ·
+Zod · Drizzle ORM · Supabase Postgres · Vitest (+ PGlite) · Playwright
 
 ## Project structure
 
@@ -81,7 +159,8 @@ features/action-plans/
 | `action_plans` | The plan: case, AI output, owner and dates, readiness, KPI progress, approval state. A DB constraint guarantees a plan can't be completed without being approved. |
 | `users` | Seeded fictional personas with a role (and a department for department managers). |
 | `audit_events` | Append-only history of what happened to which plan and who did it. Written in the same transaction as the change. |
-| `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use and outcome. Also backs rate limiting. |
+| `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use, outcome, the sources retrieved and how many citations were dropped. Also backs rate limiting. |
+| `knowledge_documents`, `knowledge_chunks` | The approved knowledge base and its section-level vectors (pgvector, in the `extensions` schema). |
 
 Row Level Security is enabled on every table with no policies, so nothing is
 reachable through Supabase's public Data API; only the server reads and writes.
@@ -97,6 +176,7 @@ reachable through Supabase's public Data API; only the server reads and writes.
 | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/personas` | Demo sign-in |
 | `POST /api/action-plans/generate` | Generate a plan (validated, rate-limited, timed out, recorded) |
 | `GET /api/audit-events` | Organisation-wide recent events (managers and reviewers) |
+| `GET /api/knowledge` | The knowledge base catalogue |
 
 Every endpoint requires a session (`401`), checks the role (`403`) and validates
 its body (`400`, `415`). Errors share one shape,
@@ -117,7 +197,7 @@ Next, in order:
 - [x] PostgreSQL persistence on Supabase, Zod validation, request IDs, rate limiting
 - [x] Seeded roles with server-enforced permissions, review decisions and per-user audit attribution
 - [x] Unit, API and end-to-end tests with CI
-- [ ] Retrieval-grounded generation with source citations over synthetic SOPs
+- [x] Retrieval-grounded generation with verified source citations over synthetic SOPs
 - [ ] Evaluation suite for grounding, citations and schema compliance
 - [ ] Public deployment
 
@@ -127,6 +207,7 @@ Next, in order:
 npm install
 cp .env.example .env.local   # add DATABASE_URL, SESSION_SECRET, OPENAI_API_KEY
 npm run db:migrate           # create the tables in your database
+npm run knowledge:ingest     # embed the knowledge base (uses your OpenAI key)
 npm run db:check             # verify the connection, tables and seeded personas
 npm run dev
 ```
@@ -146,10 +227,10 @@ npm run e2e       # Playwright, full browser flow (see below)
 
 | Layer | What it covers | How |
 | --- | --- | --- |
-| Unit | Lifecycle state machine, permissions, UI capabilities, URL handling | Vitest |
-| Repository | Transactions, rollbacks, lock rules, authorization matrix, audit accuracy | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
-| API | 401 / 403 / 404 / 400 / 415, forged cookies, CSRF, generation limits and malformed AI output | Route handlers called directly, fake model |
-| End-to-end | A plan moving through four roles in a real browser; role-gated UI; API refusals | Playwright against the production build |
+| Unit | Lifecycle state machine, permissions, UI capabilities, document parsing, embedder | Vitest |
+| Repository and retrieval | Transactions, rollbacks, lock rules, authorization matrix, audit accuracy; pgvector retrieval over the real corpus (approved-only, department scope, floor) | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
+| API and generation | 401 / 403 / 404 / 400 / 415, forged cookies, CSRF, rate limits; malformed, truncated, retried and over-citing model output | Route handlers and the generation service, fake model |
+| End-to-end | A plan moving through four roles in a real browser; grounded and ungrounded plans; role-gated UI; API refusals | Playwright against the production build |
 
 The end-to-end suite needs no external services. `e2e/server.mjs` starts an
 in-memory Postgres exposed over TCP, a fake OpenAI Responses API, and the

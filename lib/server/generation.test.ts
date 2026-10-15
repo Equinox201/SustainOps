@@ -28,6 +28,8 @@ const env: ServerEnv = {
   RETRIEVAL_TOP_K: 6,
   RETRIEVAL_MIN_SCORE: undefined,
   OPENAI_MODEL: "test-model",
+  OPENAI_MAX_OUTPUT_TOKENS: 8000,
+  OPENAI_REASONING_EFFORT: undefined,
   OPENAI_TIMEOUT_MS: 1000,
   DATABASE_URL: undefined,
   DATABASE_POOL_MAX: 5,
@@ -242,6 +244,65 @@ describe("generation safety", () => {
 
     const [row] = await db.select().from(schema.aiGenerations);
     expect(row).toMatchObject({ status: "failed", errorCode: "ai_invalid_output" });
+  });
+
+  it("reports a persistently truncated response distinctly, with usage recorded", async () => {
+    let calls = 0;
+    const truncated: ModelCaller = async () => {
+      calls += 1;
+
+      return {
+        text: '{"situationSummary": "cut off mid-',
+        inputTokens: 100,
+        outputTokens: 2400,
+        incompleteReason: "max_output_tokens",
+      };
+    };
+
+    await expect(run(truncated)).rejects.toMatchObject({
+      status: 502,
+      code: "ai_truncated",
+    });
+
+    expect(calls).toBe(2); // one retry, then give up
+    const [row] = await db.select().from(schema.aiGenerations);
+    expect(row).toMatchObject({
+      status: "failed",
+      errorCode: "ai_truncated",
+      outputTokens: 2400,
+    });
+  });
+
+  it("recovers when a one-off unreadable response is followed by a good one", async () => {
+    let calls = 0;
+    const flaky: ModelCaller = async () => {
+      calls += 1;
+
+      return calls === 1
+        ? { text: "not json at all", inputTokens: 90, outputTokens: 10 }
+        : { text: modelOutput([["S1"], ["S1"], ["S1"]]), inputTokens: 100, outputTokens: 500 };
+    };
+
+    const result = await run(flaky);
+
+    expect(calls).toBe(2);
+    expect(result.actionPlan.grounding.status).toBe("grounded");
+
+    // Still one generation record, and it reflects the successful attempt.
+    const rows = await db.select().from(schema.aiGenerations);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ status: "succeeded", outputTokens: 500 });
+  });
+
+  it("does not retry provider failures", async () => {
+    let calls = 0;
+    const down: ModelCaller = async () => {
+      calls += 1;
+      throw new Error("provider down");
+    };
+
+    await expect(run(down)).rejects.toMatchObject({ code: "ai_unavailable" });
+    expect(calls).toBe(1);
   });
 
   it("rejects output that smuggles in server-owned fields", async () => {

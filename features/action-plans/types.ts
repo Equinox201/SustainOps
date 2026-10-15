@@ -48,9 +48,14 @@ export type OverviewMetric = {
   helperText: string;
 };
 
-export type KnowledgeSource = {
+export type KnowledgeDocumentInfo = {
+  id: string;
+  slug: string;
   title: string;
-  type: string;
+  department: string;
+  documentType: string;
+  region: string;
+  version: number;
   status: string;
-  use: string;
+  chunkCount: number;
 };

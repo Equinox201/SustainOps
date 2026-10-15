@@ -11,6 +11,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
+import { vector } from "@electric-sql/pglite-pgvector";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
@@ -21,8 +22,10 @@ const AI_PORT = 54330;
 const APP_PORT = 3200;
 
 // ---- database -------------------------------------------------------------
-const pg = await PGlite.create();
+const pg = await PGlite.create({ extensions: { vector } });
 await migrate(drizzle(pg), { migrationsFolder: path.join(root, "drizzle") });
+// Supabase puts "extensions" on the search path; mirror it for pgvector.
+await pg.exec("set search_path to public, extensions");
 
 const dbServer = new PGLiteSocketServer({
   db: pg,
@@ -44,10 +47,12 @@ const aiPlan = {
     "Staff briefings on the reuse programme are infrequent.",
     "Guests are not told about the programme at check-in.",
   ],
+  // The fake model cites S1 for every action, as a compliant model would.
+  // The server keeps only citations that match what was really retrieved.
   recommendedOperationalActions: [
-    "Standardise towel reuse card placement in every room.",
-    "Run a five-minute briefing at each shift start for two weeks.",
-    "Add a reuse message to the check-in script.",
+    { action: "Assign rooms by floor when occupancy is low.", sourceIds: ["S1"] },
+    { action: "Hold a daily Front Office and Engineering check-in.", sourceIds: ["S1"] },
+    { action: "Escalate any guest comfort complaint immediately.", sourceIds: ["S1"] },
   ],
   staffMicroTrainingMessage:
     "Every towel left on the rack is a towel we do not wash. Place the card, thank the guest.",
@@ -69,7 +74,7 @@ const aiPlan = {
     "Review results after 30 days.",
     "Share findings with the Procurement team.",
   ],
-  confidenceLevel: "Medium",
+  confidenceLevel: "High",
   humanReviewRequired: true,
 };
 
@@ -124,10 +129,30 @@ const env = {
   OPENAI_BASE_URL: `http://127.0.0.1:${AI_PORT}/v1`,
   OPENAI_MODEL: "e2e-fake",
   SESSION_SECRET: "e2e-session-secret-that-is-long-enough-123456",
+  EMBEDDINGS_PROVIDER: "hash",
   GENERATION_LIMIT_PER_HOUR: "1000",
   GENERATION_DAILY_CAP: "1000",
 };
 const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
+
+// Ingest the synthetic knowledge base with the offline embedder. This must
+// be async: the database socket lives in this process, so blocking here would
+// stop it from answering the ingest script.
+console.log("[e2e] ingesting the knowledge base...");
+await new Promise((resolve, reject) => {
+  const ingest = spawn(
+    process.execPath,
+    [
+      path.join(root, "node_modules", "tsx", "dist", "cli.mjs"),
+      "scripts/ingest-knowledge.ts",
+    ],
+    { cwd: root, env, stdio: "inherit" },
+  );
+
+  ingest.on("exit", (code) =>
+    code === 0 ? resolve() : reject(new Error(`ingestion exited with ${code}`)),
+  );
+});
 
 if (!process.env.E2E_SKIP_BUILD) {
   console.log("[e2e] building the app...");

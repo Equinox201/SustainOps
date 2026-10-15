@@ -4,7 +4,6 @@ import type {
   ReadinessChecklist,
   SustainabilityCaseInput,
 } from "@/lib/types";
-import type { KnowledgeSource } from "./types";
 
 export const departmentOptions = [
   "Housekeeping",
@@ -80,38 +79,5 @@ export const readinessChecklistItems: Array<{
   {
     field: "staffMessageReady",
     label: "Staff communication message is ready",
-  },
-];
-
-export const approvedKnowledgeSources: KnowledgeSource[] = [
-  {
-    title: "Group Sustainability Principles",
-    type: "Group Policy",
-    status: "Mock connected",
-    use: "Guides sustainability framing and responsible operational recommendations",
-  },
-  {
-    title: "Housekeeping Resource Efficiency SOP",
-    type: "Department SOP",
-    status: "Mock connected",
-    use: "Supports laundry, towel reuse, amenities, and room operations guidance",
-  },
-  {
-    title: "Food Waste Measurement & Buffet Guidelines",
-    type: "F&B SOP",
-    status: "Mock connected",
-    use: "Supports buffet planning, batch replenishment, and food waste tracking",
-  },
-  {
-    title: "Sustainable Procurement Screening Guide",
-    type: "Procurement Guide",
-    status: "Mock connected",
-    use: "Supports supplier review, packaging, sourcing, and lifecycle considerations",
-  },
-  {
-    title: "Sustainability Reporting Reference",
-    type: "Reporting Guidance",
-    status: "Mock connected",
-    use: "Supports KPI definitions, evidence collection, and reporting consistency",
   },
 ];

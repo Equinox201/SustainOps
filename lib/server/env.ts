@@ -8,6 +8,8 @@ const envSchema = z.object({
   EMBEDDINGS_MODEL: z.string().min(1).default("text-embedding-3-small"),
   RETRIEVAL_TOP_K: z.coerce.number().int().min(1).max(12).default(6),
   RETRIEVAL_MIN_SCORE: z.coerce.number().min(0).max(1).optional(),
+  OPENAI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(500).max(32000).default(8000),
+  OPENAI_REASONING_EFFORT: z.enum(["minimal", "low", "medium", "high"]).optional(),
   OPENAI_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(45_000),
   DATABASE_URL: z.string().min(1).optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(20).default(5),
@@ -24,7 +26,12 @@ let cached: ServerEnv | null = null;
 /** Parsed and validated server configuration (read lazily, cached). */
 export function getEnv(): ServerEnv {
   if (!cached) {
-    cached = envSchema.parse(process.env);
+    // An empty value (KEY=) means "not set", as it does in most tooling.
+    const present = Object.fromEntries(
+      Object.entries(process.env).filter(([, value]) => value !== ""),
+    );
+
+    cached = envSchema.parse(present);
   }
 
   return cached;

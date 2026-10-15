@@ -133,7 +133,14 @@ export function getEmbedder(env: ServerEnv): Embedder {
   });
 }
 
-/** Default similarity floor per provider (cosine). Tunable via env. */
+/**
+ * Default similarity floor per provider (cosine). Tunable via env.
+ *
+ * The OpenAI value is measured, not guessed: with text-embedding-3-small on
+ * this corpus, relevant sections scored 0.555 to 0.77 and the hardest
+ * off-topic case (right department, wrong subject) scored at most 0.344.
+ * 0.45 sits in that gap. See `npm run knowledge:probe`.
+ */
 export function defaultMinScore(embedder: Embedder) {
-  return embedder.model === hashEmbedder.model ? 0.12 : 0.28;
+  return embedder.model === hashEmbedder.model ? 0.12 : 0.45;
 }

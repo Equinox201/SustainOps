@@ -42,7 +42,10 @@ Supabase Postgres, Vitest (database tests run on in-memory Postgres via PGlite).
 ```
 app/api/                     route handlers (thin): auth, plans, transitions, generate, audit
 lib/schemas/                 Zod schemas: the single source of truth for data shapes
-lib/server/                  server-only code: db, repository, generation, env, api helpers
+lib/server/                  server-only: db, repository, generation, retrieval, env, api helpers
+lib/knowledge/               pure parser/chunker for knowledge documents
+knowledge/                   synthetic Markdown corpus (numbered sections = citations)
+scripts/                     ingest-knowledge, probe-retrieval, check-db
 lib/server/db/schema.ts      Drizzle schema (migrations are generated into drizzle/)
 features/action-plans/
   components/                UI; ActionPlanEditor composes the small pieces
@@ -71,6 +74,13 @@ features/action-plans/
   are read-only until approval is reset. Completed plans are immutable.
 - **Human review is mandatory.** `humanReviewRequired` is always `true` in the AI
   schema and in the UI copy. Do not add an auto-approve path.
+- **The model's citations are untrusted.** `finalizePlan` drops any source id
+  that was not retrieved and derives grounding and the confidence cap itself.
+  Never let the model set `sources` or `grounding`.
+- **Retrieval is metadata first.** Only `status = approved` documents for the
+  case's department (or "All departments") are eligible; similarity only ranks.
+- **Corpus content is synthetic.** Never add real company documents to
+  `knowledge/`. Every file carries the synthetic banner (a test enforces it).
 - **Keep the AI contract strict.** Changes to the plan shape must update the
   JSON schema, the validators and the prompt together, and must keep the
   structured-output guarantee.
@@ -80,5 +90,6 @@ features/action-plans/
 
 ## Roadmap
 
-Planned, in order: retrieval-grounded generation with source citations, an
-evaluation suite, then deployment. See `README.md`.
+Planned, in order: an evaluation suite for grounding, citations and schema
+compliance (the retrieval floor is calibrated on few cases), then deployment.
+See `README.md`.

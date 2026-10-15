@@ -6,7 +6,7 @@ import { openPlan, openSection, signInAs, switchTo, toolbar } from "./helpers";
 test("a plan moves from case to completion across four roles", async ({
   page,
 }) => {
-  const issue = `E2E laundry spike ${Date.now()}`;
+  const issue = `E2E floors kept conditioned at low occupancy ${Date.now()}`;
   page.on("dialog", (dialog) => dialog.accept());
 
   // --- Maya (Sustainability Manager) creates a case and generates a plan ----
@@ -19,11 +19,28 @@ test("a plan moves from case to completion across four roles", async ({
   await page.getByLabel("Sustainability Issue", { exact: true }).fill(issue);
   await page.getByLabel(/^Department/).selectOption("Engineering");
   await page
+    .getByLabel("Current Metric", { exact: true })
+    .fill("Occupancy below 45% for three nights; all floors still conditioned");
+  await page
+    .getByLabel("Target Metric", { exact: true })
+    .fill("Reduce kWh per occupied room within 30 days");
+  await page
+    .getByLabel(/^Operational Context/)
+    .fill(
+      "Front Office assigns rooms across every floor, so Engineering cannot set back unused floors in air-conditioning and lighting.",
+    );
+  await page
     .getByRole("button", { name: "Generate Action Plan", exact: true })
     .first()
     .click();
 
   await expect(page.getByText(/E2E FIXTURE: laundry volume/)).toBeVisible();
+
+  // The plan is grounded: every action cites a real, retrieved section.
+  await expect(page.getByText("Grounded in approved company sources")).toBeVisible();
+  await expect(
+    page.getByLabel("Sources").first().getByText(/Energy and HVAC Operations SOP v2 §2\.2/),
+  ).toBeVisible();
 
   // The manager can author and save, but has no way to approve.
   await expect(toolbar(page).getByRole("button", { name: "Approve" })).toHaveCount(0);

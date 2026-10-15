@@ -33,6 +33,8 @@ export type ModelCall = {
   text: string;
   inputTokens: number | null;
   outputTokens: number | null;
+  /** Set when the model stopped early, e.g. "max_output_tokens". */
+  incompleteReason?: string | null;
 };
 
 export type ModelCaller = (args: {
@@ -40,6 +42,8 @@ export type ModelCaller = (args: {
   baseURL?: string;
   model: string;
   timeoutMs: number;
+  maxOutputTokens: number;
+  reasoningEffort?: "minimal" | "low" | "medium" | "high";
   instructions: string;
   input: string;
 }) => Promise<ModelCall>;
@@ -50,6 +54,8 @@ export const callOpenAI: ModelCaller = async ({
   baseURL,
   model,
   timeoutMs,
+  maxOutputTokens,
+  reasoningEffort,
   instructions,
   input,
 }) => {
@@ -64,7 +70,9 @@ export const callOpenAI: ModelCaller = async ({
     model,
     instructions,
     input,
-    max_output_tokens: 2400,
+    // Reasoning models spend this budget on thinking as well as the answer.
+    max_output_tokens: maxOutputTokens,
+    ...(reasoningEffort ? { reasoning: { effort: reasoningEffort } } : {}),
     store: false,
     text: {
       format: {
@@ -80,6 +88,10 @@ export const callOpenAI: ModelCaller = async ({
     text: response.output_text,
     inputTokens: response.usage?.input_tokens ?? null,
     outputTokens: response.usage?.output_tokens ?? null,
+    incompleteReason:
+      response.status === "incomplete"
+        ? (response.incomplete_details?.reason ?? "incomplete")
+        : null,
   };
 };
 
@@ -96,7 +108,23 @@ function stripJsonFence(text: string) {
   return match ? match[1] : text;
 }
 
-function parseModelOutput(text: string): ModelActionPlan {
+function parseModelOutput(call: ModelCall): ModelActionPlan {
+  const { text } = call;
+
+  if (call.incompleteReason) {
+    throw new ApiError(
+      502,
+      "ai_truncated",
+      "The AI response was cut off before it finished. Please try again.",
+      undefined,
+      undefined,
+      {
+        incompleteReason: call.incompleteReason,
+        outputTokens: call.outputTokens,
+      },
+    );
+  }
+
   let raw: unknown;
 
   try {
@@ -106,16 +134,30 @@ function parseModelOutput(text: string): ModelActionPlan {
       502,
       "ai_invalid_output",
       "The AI response could not be read. Please try again.",
+      undefined,
+      undefined,
+      { reason: "invalid_json", length: text.length, outputTokens: call.outputTokens },
     );
   }
 
   const result = modelActionPlanSchema.safeParse(raw);
 
   if (!result.success) {
+    // Field paths and rule names only: enough to debug, never model content.
+    const issues = result.error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      code: issue.code,
+      ...("maximum" in issue ? { maximum: issue.maximum } : {}),
+      ...("minimum" in issue ? { minimum: issue.minimum } : {}),
+    }));
+
     throw new ApiError(
       502,
       "ai_invalid_output",
       "The AI response did not match the expected format. Please try again.",
+      undefined,
+      undefined,
+      { issues },
     );
   }
 
@@ -300,6 +342,8 @@ export async function generateActionPlan({
     .returning();
 
   const startedAt = Date.now();
+  // Hoisted so token usage is recorded for failed attempts too.
+  let usage: Pick<ModelCall, "inputTokens" | "outputTokens"> | null = null;
 
   try {
     // Retrieval failure degrades to an ungrounded plan (clearly labelled)
@@ -321,18 +365,52 @@ export async function generateActionPlan({
       });
     }
 
-    const modelCall = await callModel({
-      apiKey: env.OPENAI_API_KEY,
-      baseURL: env.OPENAI_BASE_URL,
-      model: env.OPENAI_MODEL,
-      timeoutMs: env.OPENAI_TIMEOUT_MS,
-      instructions: SUSTAINABILITY_SYSTEM_PROMPT,
-      input: buildSustainabilityActionPlanPrompt(input, sources),
-    });
-    const { plan: actionPlan, citationsDropped } = finalizePlan(
-      parseModelOutput(modelCall.text),
-      sources,
-    );
+    const prompt = buildSustainabilityActionPlanPrompt(input, sources);
+    let attempt = 0;
+    let result: { plan: AIActionPlan; citationsDropped: number } | null = null;
+
+    // Model output is non-deterministic. One retry on unreadable output
+    // (bad JSON, truncation, schema mismatch) removes most one-off failures;
+    // provider errors and timeouts are not retried here.
+    while (!result) {
+      attempt += 1;
+
+      const modelCall = await callModel({
+        apiKey: env.OPENAI_API_KEY,
+        baseURL: env.OPENAI_BASE_URL,
+        model: env.OPENAI_MODEL,
+        timeoutMs: env.OPENAI_TIMEOUT_MS,
+        maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
+        reasoningEffort: env.OPENAI_REASONING_EFFORT,
+        instructions: SUSTAINABILITY_SYSTEM_PROMPT,
+        input: prompt,
+      });
+      usage = {
+        inputTokens: modelCall.inputTokens,
+        outputTokens: modelCall.outputTokens,
+      };
+
+      try {
+        result = finalizePlan(parseModelOutput(modelCall), sources);
+      } catch (error) {
+        const retryable =
+          error instanceof ApiError &&
+          (error.code === "ai_invalid_output" || error.code === "ai_truncated");
+
+        if (!retryable || attempt >= 2) {
+          throw error;
+        }
+
+        console.warn("unreadable model output; retrying once", {
+          requestId,
+          code: (error as ApiError).code,
+          diagnostics: (error as ApiError).diagnostics,
+        });
+      }
+    }
+
+    const { plan: actionPlan, citationsDropped } = result;
+    const modelCall = usage;
     const latencyMs = Date.now() - startedAt;
 
     await db
@@ -340,8 +418,8 @@ export async function generateActionPlan({
       .set({
         status: "succeeded",
         latencyMs,
-        inputTokens: modelCall.inputTokens,
-        outputTokens: modelCall.outputTokens,
+        inputTokens: modelCall?.inputTokens ?? null,
+        outputTokens: modelCall?.outputTokens ?? null,
         sources,
         groundingStatus: actionPlan.grounding.status,
         citationsDropped,
@@ -380,6 +458,7 @@ export async function generateActionPlan({
     console.warn("action plan generation failed", {
       requestId,
       code: apiError.code,
+      ...(apiError.diagnostics ? { diagnostics: apiError.diagnostics } : {}),
     });
     await db
       .update(aiGenerations)
@@ -387,6 +466,8 @@ export async function generateActionPlan({
         status: "failed",
         errorCode: apiError.code,
         latencyMs: Date.now() - startedAt,
+        inputTokens: usage?.inputTokens ?? null,
+        outputTokens: usage?.outputTokens ?? null,
       })
       .where(eq(aiGenerations.id, record.id));
 
