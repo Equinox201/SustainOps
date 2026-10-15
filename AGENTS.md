@@ -20,7 +20,8 @@ company names, real internal documents, or guest personal data to this repo.
 npm run dev         # start Next.js on http://localhost:3000
 npm run typecheck   # tsc --noEmit
 npm run lint        # eslint
-npm test            # vitest run
+npm test            # vitest run (unit, repository on PGlite, API)
+npm run e2e         # Playwright; boots its own DB, fake AI and server
 npm run build       # production build
 npm run db:generate # generate a SQL migration from lib/server/db/schema.ts
 npm run db:migrate  # apply migrations to DATABASE_URL
@@ -79,5 +80,5 @@ features/action-plans/
 
 ## Roadmap
 
-Planned, in order: end-to-end tests and CI, retrieval-grounded generation
-with source citations, an evaluation suite, then deployment. See `README.md`.
+Planned, in order: retrieval-grounded generation with source citations, an
+evaluation suite, then deployment. See `README.md`.

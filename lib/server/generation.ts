@@ -27,6 +27,7 @@ export type ModelCall = {
 
 export type ModelCaller = (args: {
   apiKey: string;
+  baseURL?: string;
   model: string;
   timeoutMs: number;
   instructions: string;
@@ -36,12 +37,18 @@ export type ModelCaller = (args: {
 /** The real OpenAI call. Swapped for a fake in tests. */
 export const callOpenAI: ModelCaller = async ({
   apiKey,
+  baseURL,
   model,
   timeoutMs,
   instructions,
   input,
 }) => {
-  const client = new OpenAI({ apiKey, timeout: timeoutMs, maxRetries: 1 });
+  const client = new OpenAI({
+    apiKey,
+    baseURL,
+    timeout: timeoutMs,
+    maxRetries: 1,
+  });
 
   const response = await client.responses.create({
     model,
@@ -231,6 +238,7 @@ export async function generateActionPlan({
   try {
     const modelCall = await callModel({
       apiKey: env.OPENAI_API_KEY,
+      baseURL: env.OPENAI_BASE_URL,
       model: env.OPENAI_MODEL,
       timeoutMs: env.OPENAI_TIMEOUT_MS,
       instructions: SUSTAINABILITY_SYSTEM_PROMPT,

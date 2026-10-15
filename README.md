@@ -1,5 +1,7 @@
 # SustainOps
 
+[![CI](https://github.com/Equinox201/SustainOps/actions/workflows/ci.yml/badge.svg)](https://github.com/Equinox201/SustainOps/actions/workflows/ci.yml)
+
 AI-assisted sustainability operations for hospitality teams. SustainOps turns an
 operational issue such as rising laundry volume, buffet food waste or low-occupancy
 energy use into a structured action plan that is reviewed by a person, approved,
@@ -114,7 +116,7 @@ Next, in order:
 - [x] Fix: approve / complete / reset are persisted atomically
 - [x] PostgreSQL persistence on Supabase, Zod validation, request IDs, rate limiting
 - [x] Seeded roles with server-enforced permissions, review decisions and per-user audit attribution
-- [ ] Unit, API and end-to-end tests with CI
+- [x] Unit, API and end-to-end tests with CI
 - [ ] Retrieval-grounded generation with source citations over synthetic SOPs
 - [ ] Evaluation suite for grounding, citations and schema compliance
 - [ ] Public deployment
@@ -136,5 +138,24 @@ Switch to **Daniel Ortiz** (Reviewer) to approve or request changes.
 ```bash
 npm run typecheck
 npm run lint
-npm test
+npm test          # unit, repository and API tests
+npm run e2e       # Playwright, full browser flow (see below)
 ```
+
+## Testing
+
+| Layer | What it covers | How |
+| --- | --- | --- |
+| Unit | Lifecycle state machine, permissions, UI capabilities, URL handling | Vitest |
+| Repository | Transactions, rollbacks, lock rules, authorization matrix, audit accuracy | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
+| API | 401 / 403 / 404 / 400 / 415, forged cookies, CSRF, generation limits and malformed AI output | Route handlers called directly, fake model |
+| End-to-end | A plan moving through four roles in a real browser; role-gated UI; API refusals | Playwright against the production build |
+
+The end-to-end suite needs no external services. `e2e/server.mjs` starts an
+in-memory Postgres exposed over TCP, a fake OpenAI Responses API, and the
+production Next.js server, wired together with the same driver and SDK the app
+uses in production. It never reads your `.env.local`, so it cannot touch real
+data or spend real credit.
+
+CI (GitHub Actions) runs lint, typecheck, tests and build, and the end-to-end
+suite in a separate job.

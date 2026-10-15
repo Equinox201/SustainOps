@@ -18,7 +18,7 @@ export function getDb(): Database {
     return database;
   }
 
-  const { DATABASE_URL } = getEnv();
+  const { DATABASE_URL, DATABASE_POOL_MAX } = getEnv();
 
   if (!DATABASE_URL) {
     throw new ApiError(
@@ -43,7 +43,7 @@ export function getDb(): Database {
   // prepare:false keeps this compatible with Supabase's transaction pooler.
   const client = postgres(normalized.url, {
     prepare: false,
-    max: 5,
+    max: DATABASE_POOL_MAX,
     connect_timeout: 10,
   });
   database = drizzle(client, { schema });
