@@ -34,6 +34,7 @@ type PlanActions = {
 
 const successMessages: Record<LifecycleEvent, string | null> = {
   approve: null,
+  request_changes: "Changes requested. The plan was returned to its authors.",
   complete: null,
   reset_approval:
     "Approval reset. Changes require a new approval before implementation.",
@@ -55,6 +56,10 @@ function createEmptyDraft(): EditorDraft {
     kpiProgress: { ...emptyKpiProgress },
     approved: false,
     completed: false,
+    reviewStatus: "none",
+    reviewComment: null,
+    approvedBy: null,
+    approvedAt: null,
     createdAt: null,
   };
 }

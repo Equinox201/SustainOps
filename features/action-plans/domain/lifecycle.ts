@@ -1,4 +1,5 @@
 import type {
+  ActorRef,
   GovernanceReview,
   PlanContent,
   ReadinessChecklist,
@@ -6,6 +7,7 @@ import type {
 } from "@/lib/types";
 import type { EditorDraft } from "../types";
 import { deepEqual } from "./deep-equal";
+import { permissionsForContentChange } from "./permissions";
 import { getPlanTitle, getReviewerStatus, hasCompleteCase } from "./plan-utils";
 
 /**
@@ -16,7 +18,11 @@ import { getPlanTitle, getReviewerStatus, hasCompleteCase } from "./plan-utils";
  * error; nothing here touches React, the network or the database.
  */
 
-export type LifecycleEvent = "approve" | "complete" | "reset_approval";
+export type LifecycleEvent =
+  | "approve"
+  | "request_changes"
+  | "complete"
+  | "reset_approval";
 
 export type LifecycleError =
   | "case_incomplete"
@@ -25,7 +31,9 @@ export type LifecycleError =
   | "already_approved"
   | "not_approved"
   | "already_completed"
-  | "plan_locked";
+  | "plan_locked"
+  | "comment_required"
+  | "self_approval_forbidden";
 
 export type LifecycleResult =
   | { ok: true; plan: StoredActionPlan }
@@ -42,6 +50,9 @@ export const lifecycleErrorMessages: Record<LifecycleError, string> = {
   already_completed: "Completed action plans cannot be changed.",
   plan_locked:
     "This action plan is approved and locked. Reset approval before changing it.",
+  comment_required: "Add a comment explaining what needs to change.",
+  self_approval_forbidden:
+    "You cannot approve a plan you created. Another reviewer must approve it.",
 };
 
 function isReadinessChecklistComplete(readinessChecklist: ReadinessChecklist) {
@@ -65,17 +76,19 @@ export function isReadyForApproval(
 export function buildGovernanceReview({
   approved,
   completed,
+  changesRequested = false,
   generatedAt,
 }: {
   approved: boolean;
   completed: boolean;
+  changesRequested?: boolean;
   generatedAt: string;
 }): GovernanceReview {
   return {
     humanReviewRequired: true,
     containsGuestPersonalData: false,
     approvedOperationalUse: approved,
-    reviewerStatus: getReviewerStatus(approved, completed),
+    reviewerStatus: getReviewerStatus(approved, completed, changesRequested),
     auditTimestamp: generatedAt,
   };
 }
@@ -96,6 +109,10 @@ export function planToDraft(plan: StoredActionPlan): EditorDraft {
     kpiProgress: plan.kpiProgress,
     approved: plan.approved,
     completed: plan.completed,
+    reviewStatus: plan.reviewStatus,
+    reviewComment: plan.reviewComment,
+    approvedBy: plan.approvedBy,
+    approvedAt: plan.approvedAt,
     createdAt: plan.createdAt,
   };
 }
@@ -132,7 +149,13 @@ export function createPlanFromContent(
     id,
     now,
     generatedAt,
-  }: { id: string; now: string; generatedAt: string | null },
+    createdBy = null,
+  }: {
+    id: string;
+    now: string;
+    generatedAt: string | null;
+    createdBy?: ActorRef | null;
+  },
 ): LifecycleResult {
   if (!content.actionPlan) {
     return { ok: false, error: "not_generated" };
@@ -152,6 +175,11 @@ export function createPlanFromContent(
       }),
       approved: false,
       completed: false,
+      reviewStatus: "none",
+      reviewComment: null,
+      createdBy,
+      approvedBy: null,
+      approvedAt: null,
       createdAt: now,
       updatedAt: now,
     },
@@ -201,6 +229,14 @@ export function applyContentUpdate(
   }
 
   const generationChanged = existing.generationId !== content.generationId;
+  // Revising the plan itself answers a reviewer's change request.
+  const revised =
+    existing.reviewStatus === "changes_requested" &&
+    permissionsForContentChange(existingContent, content).includes("plan:edit");
+  const reviewStatus = revised ? "none" : existing.reviewStatus;
+  const auditTimestamp = generationChanged
+    ? (generatedAt ?? now)
+    : existing.governanceReview.auditTimestamp;
 
   return {
     ok: true,
@@ -209,13 +245,14 @@ export function applyContentUpdate(
       title: getPlanTitle(content.sustainabilityCase),
       ...content,
       actionPlan: content.actionPlan,
-      governanceReview: generationChanged
-        ? buildGovernanceReview({
-            approved: existing.approved,
-            completed: existing.completed,
-            generatedAt: generatedAt ?? now,
-          })
-        : existing.governanceReview,
+      reviewStatus,
+      reviewComment: revised ? null : existing.reviewComment,
+      governanceReview: buildGovernanceReview({
+        approved: existing.approved,
+        completed: existing.completed,
+        changesRequested: reviewStatus === "changes_requested",
+        generatedAt: auditTimestamp,
+      }),
       updatedAt: now,
     },
   };
@@ -236,11 +273,17 @@ export function planToContent(plan: StoredActionPlan): PlanContent {
   };
 }
 
+export type TransitionOptions = {
+  actor?: ActorRef | null;
+  comment?: string | null;
+};
+
 /** Applies a lifecycle event to a plan, or explains why it is not allowed. */
 export function transitionPlan(
   plan: StoredActionPlan,
   event: LifecycleEvent,
   now: string,
+  { actor = null, comment = null }: TransitionOptions = {},
 ): LifecycleResult {
   switch (event) {
     case "approve": {
@@ -256,11 +299,64 @@ export function transitionPlan(
         return { ok: false, error: "already_approved" };
       }
 
+      // Separation of duties: the author of a plan cannot approve it.
+      if (actor && plan.createdBy && plan.createdBy.id === actor.id) {
+        return { ok: false, error: "self_approval_forbidden" };
+      }
+
       if (!isReadyForApproval(plan)) {
         return { ok: false, error: "not_ready" };
       }
 
-      return { ok: true, plan: withApproval(plan, true, false, now) };
+      return {
+        ok: true,
+        plan: {
+          ...withApproval(plan, true, false, now),
+          reviewStatus: "none",
+          reviewComment: null,
+          approvedBy: actor,
+          approvedAt: now,
+          governanceReview: buildGovernanceReview({
+            approved: true,
+            completed: false,
+            generatedAt: plan.governanceReview.auditTimestamp,
+          }),
+        },
+      };
+    }
+
+    case "request_changes": {
+      if (!plan.actionPlan) {
+        return { ok: false, error: "not_generated" };
+      }
+
+      if (plan.completed) {
+        return { ok: false, error: "already_completed" };
+      }
+
+      if (plan.approved) {
+        return { ok: false, error: "already_approved" };
+      }
+
+      if (!comment || comment.trim().length === 0) {
+        return { ok: false, error: "comment_required" };
+      }
+
+      return {
+        ok: true,
+        plan: {
+          ...plan,
+          reviewStatus: "changes_requested",
+          reviewComment: comment.trim(),
+          updatedAt: now,
+          governanceReview: buildGovernanceReview({
+            approved: false,
+            completed: false,
+            changesRequested: true,
+            generatedAt: plan.governanceReview.auditTimestamp,
+          }),
+        },
+      };
     }
 
     case "complete": {
@@ -284,7 +380,14 @@ export function transitionPlan(
         return { ok: false, error: "not_approved" };
       }
 
-      return { ok: true, plan: withApproval(plan, false, false, now) };
+      return {
+        ok: true,
+        plan: {
+          ...withApproval(plan, false, false, now),
+          approvedBy: null,
+          approvedAt: null,
+        },
+      };
     }
   }
 }

@@ -35,12 +35,13 @@ export function getVisibleStatus(
 export function getReviewerStatus(
   approved: boolean,
   completed: boolean,
+  changesRequested = false,
 ): GovernanceReview["reviewerStatus"] {
   if (completed || approved) {
     return "Approved";
   }
 
-  return "Pending";
+  return changesRequested ? "Needs Revision" : "Pending";
 }
 
 export function formatDate(value: string) {

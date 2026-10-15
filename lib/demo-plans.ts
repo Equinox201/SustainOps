@@ -19,7 +19,15 @@ const defaultGovernanceReview: StoredActionPlan["governanceReview"] = {
   auditTimestamp: demoTimestamp,
 };
 
-const rawDemoActionPlans: Array<Omit<StoredActionPlan, "generationId">> = [
+type SeedFields =
+  | "generationId"
+  | "reviewStatus"
+  | "reviewComment"
+  | "createdBy"
+  | "approvedBy"
+  | "approvedAt";
+
+const rawDemoActionPlans: Array<Omit<StoredActionPlan, SeedFields>> = [
   {
     id: "demo-energy-floor-shutdown",
     title:
@@ -256,5 +264,13 @@ const rawDemoActionPlans: Array<Omit<StoredActionPlan, "generationId">> = [
 ];
 
 export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
-  (plan) => ({ ...plan, generationId: null }),
+  (plan) => ({
+    ...plan,
+    generationId: null,
+    reviewStatus: "none",
+    reviewComment: null,
+    createdBy: null,
+    approvedBy: null,
+    approvedAt: null,
+  }),
 );
