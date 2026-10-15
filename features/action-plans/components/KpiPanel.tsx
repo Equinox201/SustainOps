@@ -7,10 +7,12 @@ export function KpiPanel({
   draft,
   onDraftChange,
   disabled,
+  disabledReason,
 }: {
   draft: EditorDraft;
   onDraftChange: (draft: EditorDraft) => void;
   disabled: boolean;
+  disabledReason?: string;
 }) {
   function updateField(field: keyof KPIProgress, value: string) {
     onDraftChange({
@@ -26,7 +28,7 @@ export function KpiPanel({
     <>
       {disabled ? (
         <div className="mb-5 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-600">
-          KPI progress is read-only once the action plan is marked done.
+          {disabledReason ?? "KPI progress is read-only."}
         </div>
       ) : null}
       <div className="grid gap-4 md:grid-cols-2">

@@ -28,7 +28,7 @@ type PlanActions = {
   transition: (
     id: string,
     event: LifecycleEvent,
-    content?: PlanContent,
+    options?: { content?: PlanContent; comment?: string },
   ) => Promise<ApiResult<StoredActionPlan>>;
 };
 
@@ -61,6 +61,7 @@ function createEmptyDraft(): EditorDraft {
     approvedBy: null,
     approvedAt: null,
     createdAt: null,
+    updatedAt: null,
   };
 }
 
@@ -212,7 +213,7 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
    * are committed by the server in the same transaction as the transition.
    * A brand-new draft is saved first, so the plan exists before approval.
    */
-  async function runLifecycleEvent(event: LifecycleEvent) {
+  async function runLifecycleEvent(event: LifecycleEvent, comment?: string) {
     if (!draft) {
       return;
     }
@@ -257,7 +258,7 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
       setDraft(planToDraft(created.data));
     }
 
-    const result = await transition(planId, event, content);
+    const result = await transition(planId, event, { content, comment });
 
     if (session !== sessionRef.current) {
       return;
@@ -306,6 +307,16 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     void runLifecycleEvent("reset_approval");
   }
 
+  function requestChanges(comment: string) {
+    if (comment.trim().length === 0) {
+      setErrorMessage(lifecycleErrorMessages.comment_required);
+      setSuccessMessage(null);
+      return;
+    }
+
+    void runLifecycleEvent("request_changes", comment.trim());
+  }
+
   return {
     draft,
     activePanel,
@@ -323,5 +334,6 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     approve,
     complete,
     resetApproval,
+    requestChanges,
   };
 }

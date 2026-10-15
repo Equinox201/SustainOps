@@ -78,8 +78,12 @@ export function useActionPlans() {
   );
 
   const transition = useCallback(
-    async (id: string, event: LifecycleEvent, content?: PlanContent) => {
-      const result = await api.transitionPlan(id, event, content);
+    async (
+      id: string,
+      event: LifecycleEvent,
+      options: { content?: PlanContent; comment?: string } = {},
+    ) => {
+      const result = await api.transitionPlan(id, event, options);
 
       if (result.ok) {
         upsertLocal(result.data);

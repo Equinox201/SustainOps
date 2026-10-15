@@ -4,9 +4,11 @@ import { fieldClassName } from "./form-styles";
 export function ImplementationNotes({
   draft,
   onDraftChange,
+  disabled = false,
 }: {
   draft: EditorDraft;
   onDraftChange: (draft: EditorDraft) => void;
+  disabled?: boolean;
 }) {
   return (
     <>
@@ -17,6 +19,7 @@ export function ImplementationNotes({
         <textarea
           className={`${fieldClassName} min-h-40 resize-y`}
           value={draft.actionNotes}
+          disabled={disabled}
           onChange={(event) =>
             onDraftChange({ ...draft, actionNotes: event.target.value })
           }

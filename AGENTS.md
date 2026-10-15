@@ -39,7 +39,7 @@ Supabase Postgres, Vitest (database tests run on in-memory Postgres via PGlite).
 ## Layout
 
 ```
-app/api/                     route handlers (thin): plans, transitions, generate, audit
+app/api/                     route handlers (thin): auth, plans, transitions, generate, audit
 lib/schemas/                 Zod schemas: the single source of truth for data shapes
 lib/server/                  server-only code: db, repository, generation, env, api helpers
 lib/server/db/schema.ts      Drizzle schema (migrations are generated into drizzle/)
@@ -62,6 +62,10 @@ features/action-plans/
   API, client and OpenAI schema derive from there.
 - **Tables are private.** RLS is on with no policies, so tables are not exposed
   through Supabase's Data API. Keep it that way; access goes through the server.
+- **Authorization is server-side and role-based.** Rules live in
+  `domain/permissions.ts`; the repository checks them inside the transaction.
+  UI gating (`domain/capabilities.ts`) is a convenience, never the boundary. A
+  plan's author cannot approve it; reviewers cannot edit plan content.
 - **Approved plans are locked.** The case, accountability fields and AI output
   are read-only until approval is reset. Completed plans are immutable.
 - **Human review is mandatory.** `humanReviewRequired` is always `true` in the AI
@@ -75,6 +79,5 @@ features/action-plans/
 
 ## Roadmap
 
-Planned, in order: seeded roles with server-enforced permissions and
-per-user audit attribution, a fuller test suite with CI, retrieval-grounded
-generation with source citations, and an evaluation suite. See `README.md`.
+Planned, in order: end-to-end tests and CI, retrieval-grounded generation
+with source citations, an evaluation suite, then deployment. See `README.md`.
