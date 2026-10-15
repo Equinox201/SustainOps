@@ -4,6 +4,7 @@ import { formatDate } from "../domain/plan-utils";
 
 const EVENT_LABELS: Record<AuditEventType, string> = {
   demo_cases_loaded: "Demo cases loaded",
+  demo_reset: "Demo data reset",
   action_plan_created: "Created",
   action_plan_generated: "AI plan generated",
   action_plan_updated: "Edited",

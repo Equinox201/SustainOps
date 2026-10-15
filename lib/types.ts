@@ -30,6 +30,7 @@ export type {
 
 export type AuditEventType =
   | "demo_cases_loaded"
+  | "demo_reset"
   | "action_plan_created"
   | "action_plan_generated"
   | "action_plan_updated"

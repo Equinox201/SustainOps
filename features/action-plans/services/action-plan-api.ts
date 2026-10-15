@@ -144,3 +144,12 @@ export async function fetchKnowledgeDocuments() {
     ? { ok: true as const, data: result.data.documents }
     : result;
 }
+
+const resetResponse = z.object({ removed: z.number(), restored: z.number() });
+
+export function resetDemo() {
+  return apiRequest("/api/demo/reset", {
+    method: "POST",
+    schema: resetResponse,
+  });
+}

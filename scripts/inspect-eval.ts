@@ -34,6 +34,7 @@ async function main() {
     ...getEnv(),
     EMBEDDINGS_PROVIDER: "openai" as const,
     GENERATION_LIMIT_PER_HOUR: 100_000,
+    GENERATION_IP_LIMIT_PER_HOUR: 100_000,
     GENERATION_DAILY_CAP: 100_000,
   };
   const embedder = getEmbedder(env);

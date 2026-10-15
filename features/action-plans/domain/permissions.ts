@@ -26,7 +26,8 @@ export type Permission =
   | "plan:request_changes"
   | "plan:reset_approval"
   | "plan:complete"
-  | "audit:view";
+  | "audit:view"
+  | "demo:reset";
 
 export type Principal = {
   id: string;
@@ -62,6 +63,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "plan:complete",
     "plan:reset_approval",
     "audit:view",
+    "demo:reset",
   ],
   department_manager: ["plan:view", "plan:notes", "plan:kpi"],
   reviewer: [

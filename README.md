@@ -255,7 +255,13 @@ Next, in order:
 - [x] Unit, API and end-to-end tests with CI
 - [x] Retrieval-grounded generation with verified source citations over synthetic SOPs
 - [x] Evaluation suite for grounding, citations and schema compliance (published at `/evals`)
-- [ ] Public deployment
+- [x] Deployment configuration, abuse limits and nightly reset (see `DEPLOYMENT.md`)
+
+## Deployment
+
+Runs on Vercel (region `icn1`) with Supabase Postgres, with per-address and
+global generation limits, a nightly demo reset, and a `/api/health` endpoint.
+See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the runbook and its limitations.
 
 ## Running locally
 

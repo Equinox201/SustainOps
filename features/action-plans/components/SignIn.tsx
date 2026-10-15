@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { SessionUser } from "@/lib/schemas/action-plan";
 import { ROLE_LABELS, ROLE_SUMMARIES } from "../domain/permissions";
 import { fetchPersonas } from "../services/auth-api";
+import { DemoNotice } from "./DemoNotice";
 
 export function SignIn({
   error,
@@ -52,6 +53,10 @@ export function SignIn({
           persona to see the workflow from that seat. All people, properties and
           data are fictional.
         </p>
+
+        <div className="mt-6">
+          <DemoNotice />
+        </div>
 
         {error || loadError ? (
           <div

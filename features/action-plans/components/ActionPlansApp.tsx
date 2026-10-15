@@ -11,6 +11,7 @@ import type { MainView } from "../types";
 import { ActionPlanEditor } from "./ActionPlanEditor";
 import { ActionPlanList } from "./ActionPlanList";
 import { AppHeader } from "./AppHeader";
+import { DemoNotice } from "./DemoNotice";
 import { InsightsView } from "./InsightsView";
 import { SignIn } from "./SignIn";
 
@@ -54,6 +55,7 @@ function Workspace({
     transition,
     deletePlan,
     loadDemoPlans,
+    resetDemo,
   } = useActionPlans();
   const editor = useActionPlanEditor({ savePlan, transition });
   const canViewInsights = can(user, "audit:view");
@@ -81,6 +83,19 @@ function Workspace({
     setNotice(
       result.data.added === 0 ? "Demo action plans are already loaded." : null,
     );
+  }
+
+  async function handleResetDemo() {
+    if (
+      !window.confirm(
+        "Reset the demo? Every plan and its history will be replaced with the original fictional demo plans.",
+      )
+    ) {
+      return;
+    }
+
+    const result = await resetDemo();
+    setNotice(result.ok ? "Demo data was reset." : result.message);
   }
 
   async function handleApprove(planId: string) {
@@ -128,6 +143,8 @@ function Workspace({
           />
         ) : (
           <>
+            <DemoNotice />
+
             <AppHeader
               user={user}
               currentMainView={currentMainView}
@@ -177,6 +194,7 @@ function Workspace({
                 onDelete={handleDelete}
                 onApprove={handleApprove}
                 onComplete={handleComplete}
+                onResetDemo={handleResetDemo}
               />
             ) : null}
 

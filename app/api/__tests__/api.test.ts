@@ -9,10 +9,14 @@ import { POST as transitionRoute } from "../action-plans/[id]/transition/route";
 import { POST as demoRoute } from "../action-plans/demo/route";
 import { POST as generateRoute } from "../action-plans/generate/route";
 import { GET as auditRoute } from "../audit-events/route";
+import { GET as cronResetRoute } from "../cron/reset-demo/route";
+import { GET as healthRoute } from "../health/route";
+import { POST as demoResetRoute } from "../demo/reset/route";
 import { POST as loginRoute } from "../auth/login/route";
 import { GET as meRoute } from "../auth/me/route";
 
 process.env.SESSION_SECRET = "test-session-secret-at-least-32-characters-long";
+process.env.CRON_SECRET = "test-cron-secret-0123456789";
 delete process.env.OPENAI_API_KEY;
 
 let db: Database;
@@ -322,5 +326,72 @@ describe("authorization and validation", () => {
 
     expect(response.status).toBe(503);
     expect((await response.json()).error.code).toBe("ai_not_configured");
+  });
+});
+
+describe("public demo operations", () => {
+  it("reports health without revealing configuration", async () => {
+    const response = await healthRoute(request("/api/health"), noParams);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ status: "ok", database: "ok" });
+    expect(JSON.stringify(body)).not.toMatch(/secret|password|postgres:/i);
+  });
+
+  it("refuses the scheduled reset without the cron secret", async () => {
+    const none = await cronResetRoute(request("/api/cron/reset-demo"), noParams);
+    expect(none.status).toBe(401);
+
+    const wrong = await cronResetRoute(
+      new Request("http://localhost/api/cron/reset-demo", {
+        headers: { authorization: "Bearer not-the-secret-0123456789" },
+      }),
+      noParams,
+    );
+    expect(wrong.status).toBe(401);
+  });
+
+  it("runs the scheduled reset with the cron secret", async () => {
+    const manager = await signIn("usr_maya_chen");
+    await createPlanRoute(
+      request("/api/action-plans", {
+        method: "POST",
+        body: content({ owner: "Temp" }),
+        cookie: manager,
+      }),
+      noParams,
+    );
+
+    const response = await cronResetRoute(
+      new Request("http://localhost/api/cron/reset-demo", {
+        headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
+      }),
+      noParams,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.restored).toBe(demoActionPlans.length);
+
+    const list = await listPlansRoute(
+      request("/api/action-plans", { cookie: manager }),
+      noParams,
+    );
+    const { plans } = await list.json();
+    expect(plans).toHaveLength(demoActionPlans.length);
+  });
+
+  it("lets only a manager reset the demo by hand", async () => {
+    const reviewer = await signIn("usr_daniel_ortiz");
+    const manager = await signIn("usr_maya_chen");
+    const reset = (cookie: string) =>
+      demoResetRoute(
+        request("/api/demo/reset", { method: "POST", cookie }),
+        noParams,
+      );
+
+    expect((await reset(reviewer)).status).toBe(403);
+    expect((await reset(manager)).status).toBe(200);
   });
 });

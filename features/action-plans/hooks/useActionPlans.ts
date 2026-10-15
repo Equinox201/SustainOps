@@ -116,6 +116,16 @@ export function useActionPlans() {
     return result;
   }, []);
 
+  const resetDemo = useCallback(async () => {
+    const result = await api.resetDemo();
+
+    if (result.ok) {
+      await refresh();
+    }
+
+    return result;
+  }, [refresh]);
+
   return {
     plans,
     loadState,
@@ -125,5 +135,6 @@ export function useActionPlans() {
     transition,
     deletePlan,
     loadDemoPlans,
+    resetDemo,
   };
 }

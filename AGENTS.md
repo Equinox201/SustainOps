@@ -87,6 +87,10 @@ features/action-plans/
   similarity floor, and re-run `npm run evals`. Publish what it measures,
   including failures; never edit a report by hand. If a metric turns out to
   measure wording instead of behaviour, remove it and say so.
+- **The deployed demo is public and shared.** Cost is bounded by per-address,
+  per-persona and daily generation limits (`lib/server/generation.ts`); the
+  nightly job and the manager reset replace all plans with the fictional demo
+  plans. Keep limits enforced server-side and keep secrets out of the repo.
 - **Keep the AI contract strict.** Changes to the plan shape must update the
   JSON schema, the validators and the prompt together, and must keep the
   structured-output guarantee.
