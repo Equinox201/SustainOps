@@ -186,7 +186,7 @@ cases run through the production retrieval and generation code and are
 published at **`/evals`** (methodology and metric definitions in
 [`evals/README.md`](evals/README.md)).
 
-Latest full run (`gpt-5-mini`, `text-embedding-3-small`, commit `bf47943`):
+Latest full run (`gpt-5-mini`, `text-embedding-3-small`, prompt v4, commit `ffdf539`):
 
 | | Result | 95% CI |
 | --- | --- | --- |
@@ -196,12 +196,40 @@ Latest full run (`gpt-5-mini`, `text-embedding-3-small`, commit `bf47943`):
 | Forbidden / superseded document retrieved | **0 / 24** | 0–14% |
 | Off-topic cases that correctly retrieved nothing | 2 / 2 | 34–100% |
 | Plans valid on the first attempt | 24 / 24 | 86–100% |
-| Recommended actions citing a retrieved source | 101 / 104 | 92–99% |
-| Citations to sources the model was never given | 0 / 151 | 0–2% |
-| Percentage/temperature figures not traceable to the case or sources | 2 / 21 | 3–29% |
-| Cited actions an LLM judge rated **fully** supported | 37 / 101 | 28–46% |
-| Cited actions rated at least partly supported | 100 / 101 | 95–100% |
-| Latency, median / p95 | 15.9 s / 20.7 s | |
+| Recommended actions citing a retrieved source | 100 / 108 | 86–96% |
+| Citations to sources the model was never given | 0 / 122 | 0–3% |
+| Percentage/temperature figures not traceable to the case or sources | 1 / 15 | 1–30% |
+| Cited actions an LLM judge rated **fully** supported | 48 / 100 | 38–58% |
+| Cited actions rated at least partly supported | 100 / 100 | 96–100% |
+| Actions the model called policy requirements | 82 / 117 | 61–78% |
+| …whose quotation the server found in the source | **82 / 82** | 96–100% |
+| Verified policy actions judged fully supported | 46 / 82 | 45–66% |
+| Every other cited action judged fully supported | 2 / 18 | 3–33% |
+| Latency, median / p95 | 30.8 s / 39.2 s | |
+
+What the statement labels showed (the parts that are not flattering):
+
+- **The quotation check rejected nothing.** All 82 quotations were real, so on
+  this benchmark the model did not fabricate a quotation. That is a good result
+  about the model, but it also means the check has not yet caught a real failure:
+  it is proven by unit tests with forged and paraphrased quotations, not by
+  production traffic.
+- **The model over-assigns the label.** It called 70% of actions policy
+  requirements. A verified one means *the source contains those words*, not
+  *the source requires this action*: 44% of verified policy actions were still
+  judged only partly supported (the quotation is real; the action adds detail
+  beyond it).
+- **The label does carry signal.** Verified policy actions were judged fully
+  supported far more often than the remaining cited actions (56% vs 11%), but
+  the comparison group is only 18 actions, the intervals are wide, and it is one
+  run of a single model with a same-family judge. Read it as encouraging, not
+  settled.
+- **Latency roughly doubled** (median 15.9 s to 30.8 s). Prompt v4 asks for
+  quotations and a label per action, which means more output; run-to-run
+  variance in a reasoning model also contributes. I have not separated the two.
+- **Overall fully-supported (48%) is not a demonstrated improvement.** Earlier
+  runs ranged 37–43%; the intervals overlap. The labels do not change the
+  generated content, they change what the product claims about it.
 
 How to read it, including the parts that are less flattering:
 
@@ -209,19 +237,20 @@ How to read it, including the parts that are less flattering:
   retrieved, the trap case did not repeat the superseded figure, injected
   instructions and guest identifiers were not echoed, and off-topic cases were
   labelled as general guidance.
-- **"Partially supported" is the common verdict, not "fully".** Across four
-  full runs the fully-supported share ranged 37–43%. Inspecting the verdicts
+- **"Partially supported" is the common verdict, not "fully".** Across five
+  full runs the fully-supported share ranged 37–48%. Inspecting the verdicts
   shows the typical partial action follows a cited section and adds operational
   detail (a duration, a logging step), which is often desirable but is not the
-  same as the policy saying it. Surfacing "what the policy says" separately from
-  "what this plan proposes" is the obvious next product improvement.
+  same as the policy saying it. Statement labels (above) now surface "what the
+  policy says" separately from "what this plan proposes"; tightening when the
+  model may use the policy label is the next improvement.
 - **The judge is the same model family as the generator**, so it may be
   lenient, and it is a screening signal rather than ground truth.
-- **Untraceable figures are a proxy.** The two flagged here were a target the
-  plan proposed (100%); in an earlier run one was the model converting "one in
-  seven" to 14%. Neither is invented policy, which is why this is reported but
-  does not fail a case.
-- **Confidence is not discriminating.** 18 of 24 plans report High. The server
+- **Untraceable figures are a proxy.** In earlier runs the flagged figures were
+  a target the plan proposed (100%) and the model converting "one in seven" to
+  14%. Neither is invented policy, which is why this is reported but does not
+  fail a case.
+- **Confidence is not discriminating.** 13 of 24 plans report High. The server
   caps it when grounding is weak, but among grounded plans the model almost
   always says High, so it should not be relied on.
 - **Small and synthetic.** 24 cases over 49 synthetic sections, labelled by one

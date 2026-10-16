@@ -175,6 +175,19 @@ async function main() {
       console.log(`  judge: supported     ${pct(g.faithfulness.supported.rate)}  ${frac(g.faithfulness.supported)}`);
     }
 
+    if (g.policy) {
+      console.log(`  called policy reqs   ${pct(g.policy.claimShare.rate)}  ${frac(g.policy.claimShare)}`);
+      console.log(`  quotations held up   ${pct(g.policy.claimsVerified.rate)}  ${frac(g.policy.claimsVerified)}`);
+
+      if (g.policy.supportedVerified) {
+        console.log(`  verified, supported  ${pct(g.policy.supportedVerified.rate)}  ${frac(g.policy.supportedVerified)}`);
+      }
+
+      if (g.policy.supportedOther) {
+        console.log(`  other cited, supported ${pct(g.policy.supportedOther.rate)}  ${frac(g.policy.supportedOther)}`);
+      }
+    }
+
     console.log(`  latency p50 / p95    ${Math.round((g.latencyMs.p50 ?? 0) / 100) / 10}s / ${Math.round((g.latencyMs.p95 ?? 0) / 100) / 10}s`);
   }
 
