@@ -28,7 +28,7 @@ A governed workflow rather than a chatbot:
 3. Review it: root causes, actions, staff micro-training, manager checklist, KPIs, governance notes.
 4. Assign an owner and dates and complete the readiness checklist.
 5. Approve. The plan is locked to protect the reviewed record.
-6. Track implementation notes and KPI progress, then mark the plan done.
+6. Track action progress, add notes and KPI progress, then mark the plan done.
 
 ## Roles and governance
 
@@ -39,8 +39,9 @@ and enforced on the server, inside the same transaction as the change.
 | | Sustainability Manager | Department Manager | Reviewer |
 | --- | :---: | :---: | :---: |
 | See plans | all | own department | all |
-| Create cases, generate, edit plans | ✓ | | |
-| Implementation notes and KPI progress | ✓ | ✓ | |
+| Create cases, generate, edit plans; edit, add and assign actions | ✓ | | |
+| Action progress and blockers, KPI progress, add notes | ✓ | ✓ | |
+| Respond to change requests and resubmit | ✓ | | |
 | Approve or request changes (with a comment) | | | ✓ |
 | Reset approval | ✓ | | ✓ |
 | Mark done, delete | ✓ | | |
@@ -51,6 +52,19 @@ and enforced on the server, inside the same transaction as the change.
 - Every action is attributed to a user in a per-plan history.
 - Out-of-scope plans answer `404`, so a department manager can't probe for other departments' plans.
 - Human review is always required; there is no auto-approve path.
+- **Actions are individual records.** Each has a stable id, an `origin` (`ai` or
+  `human`, decided by the server, never the client), an assignee who must be a
+  real eligible person, a due date and a status. The AI's output is stored
+  separately and never edited, so what people changed is always measurable.
+  What an action says and who does it is part of the plan (locked on approval);
+  its progress and blockers stay open to the people doing the work.
+- **Review is a loop, not a flag.** A change request stays open until the author
+  answers it. Editing the plan does not close it; an explicit *resubmit* with a
+  response to every open request does, and approval is refused while any is open.
+- **Every version is kept.** Each write stores an immutable snapshot in the same
+  transaction, the approved version is pinned, and any two versions can be
+  compared ("changes since approval").
+- **Notes are append-only**, attributed and timestamped.
 - Concurrent edits cannot silently overwrite each other. Every plan carries a
   `version`; a save or transition must name the version it was based on, and a
   stale one is refused with `409 stale_write` instead of winning. The editor
@@ -221,6 +235,9 @@ features/action-plans/
 | Table | Purpose |
 | --- | --- |
 | `action_plans` | The plan: case, AI output, owner and dates, readiness, KPI progress, approval state, and a `version` for optimistic concurrency. A DB constraint guarantees a plan can't be completed without being approved. |
+| `action_plan_revisions` | One immutable snapshot per plan version, with who and why. Written in the same transaction as the change; `action_plans.approved_version` pins the approved one. |
+| `change_requests` | A reviewer's request and, once given, the author's response. Open until answered. |
+| `plan_notes` | Append-only implementation notes. |
 | `users` | Seeded fictional personas with a role (and a department for department managers). |
 | `audit_events` | Append-only history of what happened to which plan and who did it. Written in the same transaction as the change. |
 | `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use, outcome, the sources retrieved and how many citations were dropped. Also backs rate limiting. |
@@ -235,8 +252,10 @@ reachable through Supabase's public Data API; only the server reads and writes.
 | --- | --- |
 | `GET/POST /api/action-plans` | List and create plans |
 | `GET/PUT/DELETE /api/action-plans/:id` | Read, edit (lock rules enforced; body carries `expectedVersion`, stale writes answer `409`) and delete |
-| `POST /api/action-plans/:id/transition` | Approve, request changes, complete or reset; optionally saves pending edits atomically. Carries `expectedVersion` |
+| `POST /api/action-plans/:id/transition` | Approve, request changes, resubmit (with `responses`), complete or reset; optionally saves pending edits atomically. Carries `expectedVersion` |
 | `GET /api/action-plans/:id/history` | The plan's attributed audit history |
+| `GET/POST /api/action-plans/:id/notes` | List and append implementation notes |
+| `GET /api/action-plans/:id/revisions`, `GET .../revisions/:version` | Versions of a plan, and one version's content |
 | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/personas` | Demo sign-in |
 | `POST /api/action-plans/generate` | Generate a plan (validated, rate-limited, timed out, recorded) |
 | `GET /api/audit-events` | Organisation-wide recent events (managers and reviewers) |
@@ -265,6 +284,7 @@ Next, in order:
 - [x] Evaluation suite for grounding, citations and schema compliance (published at `/evals`)
 - [x] Deployment configuration, abuse limits and nightly reset (see `DEPLOYMENT.md`)
 - [x] Phase 2 / B1: stable plan URLs and list filters, optimistic concurrency, unsaved-change guard, accurate loading states
+- [x] Phase 2 / B2: action-level model, revisions and comparison, explicit change-request resubmission, linked assignees, append-only notes
 
 ## Deployment
 
@@ -299,8 +319,8 @@ npm run evals     # the evaluation benchmark (see Evaluation)
 
 | Layer | What it covers | How |
 | --- | --- | --- |
-| Unit | Lifecycle state machine, permissions, UI capabilities, document parsing, embedder | Vitest |
-| Repository and retrieval | Transactions, rollbacks, lock rules, authorization matrix, audit accuracy; pgvector retrieval over the real corpus (approved-only, department scope, floor) | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
+| Unit | Lifecycle state machine, permissions, action rules, snapshot diffs, UI capabilities, document parsing, embedder | Vitest |
+| Repository and retrieval | Transactions, rollbacks, lock rules, revisions, change requests, authorization matrix, audit accuracy; the data migration against legacy-shaped rows; pgvector retrieval over the real corpus (approved-only, department scope, floor) | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
 | API and generation | 401 / 403 / 404 / 400 / 415, forged cookies, CSRF, rate limits; malformed, truncated, retried and over-citing model output | Route handlers and the generation service, fake model |
 | End-to-end | A plan moving through four roles in a real browser; grounded and ungrounded plans; role-gated UI; API refusals; deep links, filters in the URL, and two sessions editing one plan | Playwright against the production build |
 

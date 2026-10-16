@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   vector,
 } from "drizzle-orm/pg-core";
@@ -17,6 +18,7 @@ import type {
   KPIProgress,
   ReadinessChecklist,
 } from "@/lib/schemas/action-plan";
+import type { RevisionSnapshot } from "@/lib/types";
 
 /**
  * All tables have Row Level Security enabled with no policies: they are not
@@ -111,7 +113,15 @@ export const actionPlans = pgTable(
       .$type<ReadinessChecklist>()
       .notNull(),
     kpiProgress: jsonb("kpi_progress").$type<KPIProgress>().notNull(),
+    // Deprecated: notes are rows in plan_notes. Kept (read-only, copied by
+    // migration 0006) so the old value is not destroyed; drop it once the
+    // new model has settled.
     actionNotes: text("action_notes").notNull().default(""),
+    // The AI's output as first saved, or as last regenerated. Never edited:
+    // human changes are measured against it.
+    originalAiOutput: jsonb("original_ai_output").$type<AIActionPlan>(),
+    // The version in which the current approval took effect.
+    approvedVersion: integer("approved_version"),
     approved: boolean("approved").notNull().default(false),
     completed: boolean("completed").notNull().default(false),
     // Optimistic concurrency token: bumped on every successful write.
@@ -148,6 +158,96 @@ export const actionPlans = pgTable(
       sql`not ${table.completed} or ${table.approved}`,
     ),
   ],
+).enableRLS();
+
+/**
+ * One immutable snapshot per version of a plan, written in the same
+ * transaction as the change. `approved_version` points at the one a reviewer
+ * actually approved.
+ */
+export const actionPlanRevisions = pgTable(
+  "action_plan_revisions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => actionPlans.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    eventType: text("event_type").notNull(),
+    actorUserId: text("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorRole: text("actor_role"),
+    reason: text("reason"),
+    snapshot: jsonb("snapshot").$type<RevisionSnapshot>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("action_plan_revisions_plan_version_idx").on(
+      table.planId,
+      table.version,
+    ),
+  ],
+).enableRLS();
+
+/**
+ * A reviewer's request for changes. It stays open until the author answers it
+ * explicitly when resubmitting; editing the plan does not close it.
+ */
+export const changeRequests = pgTable(
+  "change_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => actionPlans.id, { onDelete: "cascade" }),
+    comment: text("comment").notNull(),
+    status: text("status").notNull().default("open"),
+    requestedBy: text("requested_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    requestedAt: timestamp("requested_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    response: text("response"),
+    respondedBy: text("responded_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("change_requests_plan_idx").on(table.planId, table.requestedAt),
+    check(
+      "change_requests_status_check",
+      sql`${table.status} in ('open', 'addressed')`,
+    ),
+    check(
+      "change_requests_addressed_has_response",
+      sql`${table.status} <> 'addressed' or (${table.response} is not null and ${table.respondedAt} is not null)`,
+    ),
+  ],
+).enableRLS();
+
+/** Implementation notes: append-only, attributed and timestamped. */
+export const planNotes = pgTable(
+  "plan_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    planId: text("plan_id")
+      .notNull()
+      .references(() => actionPlans.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    authorUserId: text("author_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    authorRole: text("author_role"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("plan_notes_plan_idx").on(table.planId, table.createdAt)],
 ).enableRLS();
 
 export const auditEvents = pgTable(
@@ -226,7 +326,9 @@ export const knowledgeChunks = pgTable(
     content: text("content").notNull(),
     // Chunks are only compared to vectors made by the same embedding model.
     embeddingModel: text("embedding_model").notNull(),
-    embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+    embedding: vector("embedding", {
+      dimensions: EMBEDDING_DIMENSIONS,
+    }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -237,3 +339,6 @@ export const knowledgeChunks = pgTable(
 ).enableRLS();
 
 export type ActionPlanRow = typeof actionPlans.$inferSelect;
+export type ChangeRequestRow = typeof changeRequests.$inferSelect;
+export type PlanNoteRow = typeof planNotes.$inferSelect;
+export type RevisionRow = typeof actionPlanRevisions.$inferSelect;

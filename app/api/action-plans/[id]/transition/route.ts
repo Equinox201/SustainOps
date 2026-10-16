@@ -7,21 +7,19 @@ import { requirePrincipal } from "@/lib/server/session";
 type Params = { id: string };
 
 /**
- * Approve, request changes, complete or reset a plan, optionally saving
- * pending edits in the same transaction. Permissions depend on the event.
+ * Approve, request changes, resubmit, complete or reset a plan, optionally
+ * saving pending edits in the same transaction. Permissions depend on the event.
  */
 export const POST = withApi<Params>(async (request, { requestId, params }) => {
   const db = getDb();
   const actor = await requirePrincipal(request, db);
-  const { event, expectedVersion, content, comment } = await parseBody(
-    request,
-    transitionRequestSchema,
-  );
+  const { event, expectedVersion, content, comment, responses } =
+    await parseBody(request, transitionRequestSchema);
   const plan = await transitionPlanState(
     db,
     params.id,
     event,
-    { expectedVersion, content, comment },
+    { expectedVersion, content, comment, responses },
     { requestId, actor },
   );
 

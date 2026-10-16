@@ -1,6 +1,10 @@
 import type {
+  ActionOrigin,
+  ActionStatus,
   ActorRef,
   AIActionPlan,
+  ChangeRequest,
+  ChangeResponse,
   GovernanceReview,
   Grounding,
   KPIProgress,
@@ -10,12 +14,17 @@ import type {
   ReadinessChecklist,
   RecommendedAction,
   SourceRef,
+  StoredAction,
   SustainabilityCaseInput,
 } from "@/lib/schemas/action-plan";
 
 export type {
+  ActionOrigin,
+  ActionStatus,
   ActorRef,
   AIActionPlan,
+  ChangeRequest,
+  ChangeResponse,
   GovernanceReview,
   Grounding,
   KPIProgress,
@@ -25,6 +34,7 @@ export type {
   ReadinessChecklist,
   RecommendedAction,
   SourceRef,
+  StoredAction,
   SustainabilityCaseInput,
 };
 
@@ -39,6 +49,8 @@ export type AuditEventType =
   | "approval_reset"
   | "action_plan_completed"
   | "action_plan_deleted"
+  | "plan_resubmitted"
+  | "note_added"
   | "action_notes_updated"
   | "kpi_progress_updated";
 
@@ -59,7 +71,6 @@ export type StoredActionPlan = {
   actionPlan: AIActionPlan | null;
   generationId: string | null;
   governanceReview: GovernanceReview;
-  actionNotes: string;
   owner: string;
   priority: Priority;
   targetDate: string;
@@ -68,6 +79,11 @@ export type StoredActionPlan = {
   kpiProgress: KPIProgress;
   /** Concurrency token; sent back with every edit. */
   version: number;
+  /** The version that was approved; null unless approved. */
+  approvedVersion: number | null;
+  /** The AI's output as first saved or last regenerated; never edited. */
+  originalAiOutput: AIActionPlan | null;
+  changeRequests: ChangeRequest[];
   approved: boolean;
   completed: boolean;
   reviewStatus: "none" | "changes_requested";
@@ -77,4 +93,40 @@ export type StoredActionPlan = {
   approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+/** A free-text implementation note: append-only, attributed and timestamped. */
+export type PlanNote = {
+  id: string;
+  body: string;
+  author: { id: string; name: string; role: string } | null;
+  createdAt: string;
+};
+
+/** The content of a plan as it stood at one version. */
+export type RevisionSnapshot = {
+  sustainabilityCase: SustainabilityCaseInput;
+  actionPlan: AIActionPlan | null;
+  owner: string;
+  priority: Priority;
+  targetDate: string;
+  nextReviewDate: string;
+  readinessChecklist: ReadinessChecklist;
+  kpiProgress: KPIProgress;
+  approved: boolean;
+  completed: boolean;
+  reviewStatus: "none" | "changes_requested";
+  reviewComment: string | null;
+};
+
+export type PlanRevisionSummary = {
+  version: number;
+  eventType: string;
+  actor: { id: string; name: string; role: string } | null;
+  reason: string | null;
+  createdAt: string;
+};
+
+export type PlanRevision = PlanRevisionSummary & {
+  snapshot: RevisionSnapshot;
 };

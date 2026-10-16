@@ -7,7 +7,12 @@ import type {
 } from "@/lib/types";
 import type { EditorDraft } from "../types";
 import { deepEqual } from "./deep-equal";
-import { permissionsForContentChange } from "./permissions";
+import {
+  coreActionView,
+  normalizeActions,
+  trackingView,
+  type ActionItemError,
+} from "./action-items";
 import { getPlanTitle, getReviewerStatus, hasCompleteCase } from "./plan-utils";
 
 /**
@@ -19,7 +24,7 @@ import { getPlanTitle, getReviewerStatus, hasCompleteCase } from "./plan-utils";
  */
 
 export type LifecycleEvent =
-  "approve" | "request_changes" | "complete" | "reset_approval";
+  "approve" | "request_changes" | "resubmit" | "complete" | "reset_approval";
 
 export type LifecycleError =
   | "case_incomplete"
@@ -30,7 +35,12 @@ export type LifecycleError =
   | "already_completed"
   | "plan_locked"
   | "comment_required"
-  | "self_approval_forbidden";
+  | "changes_pending"
+  | "no_open_request"
+  | "responses_incomplete"
+  | "invalid_assignee"
+  | "self_approval_forbidden"
+  | ActionItemError;
 
 export type LifecycleResult =
   { ok: true; plan: StoredActionPlan } | { ok: false; error: LifecycleError };
@@ -49,6 +59,18 @@ export const lifecycleErrorMessages: Record<LifecycleError, string> = {
   comment_required: "Add a comment explaining what needs to change.",
   self_approval_forbidden:
     "You cannot approve a plan you created. Another reviewer must approve it.",
+  changes_pending:
+    "The reviewer asked for changes. Respond to each request and resubmit before this plan can be approved.",
+  no_open_request: "There are no open change requests to resubmit.",
+  responses_incomplete:
+    "Respond to every open change request before resubmitting.",
+  invalid_assignee:
+    "An action is assigned to someone who cannot take it. Pick a person from this plan's department.",
+  invalid_actions: "Each action must have its own id.",
+  blank_action:
+    "Every action needs some text. Fill in or remove the empty one.",
+  unknown_source: "An action cites a source that is not part of this plan.",
+  blocked_reason_required: "Say what is blocking an action marked Blocked.",
 };
 
 function isReadinessChecklistComplete(readinessChecklist: ReadinessChecklist) {
@@ -96,7 +118,6 @@ export function planToDraft(plan: StoredActionPlan): EditorDraft {
     actionPlan: plan.actionPlan,
     generationId: plan.generationId,
     governanceReview: plan.governanceReview,
-    actionNotes: plan.actionNotes,
     owner: plan.owner,
     priority: plan.priority,
     targetDate: plan.targetDate,
@@ -104,6 +125,9 @@ export function planToDraft(plan: StoredActionPlan): EditorDraft {
     readinessChecklist: plan.readinessChecklist,
     kpiProgress: plan.kpiProgress,
     version: plan.version,
+    approvedVersion: plan.approvedVersion,
+    originalAiOutput: plan.originalAiOutput,
+    changeRequests: plan.changeRequests,
     approved: plan.approved,
     completed: plan.completed,
     reviewStatus: plan.reviewStatus,
@@ -127,7 +151,6 @@ export function draftToContent(draft: EditorDraft): PlanContent {
     nextReviewDate: draft.nextReviewDate,
     readinessChecklist: draft.readinessChecklist,
     kpiProgress: draft.kpiProgress,
-    actionNotes: draft.actionNotes,
   };
 }
 
@@ -137,7 +160,15 @@ export function checkDraftSavable(draft: EditorDraft): LifecycleError | null {
     return "case_incomplete";
   }
 
-  return draft.actionPlan ? null : "not_generated";
+  if (!draft.actionPlan) {
+    return "not_generated";
+  }
+
+  return draft.actionPlan.recommendedOperationalActions.some(
+    (item) => item.action.trim() === "",
+  )
+    ? "blank_action"
+    : null;
 }
 
 /** Builds a brand-new, unapproved plan from validated content. */
@@ -159,13 +190,25 @@ export function createPlanFromContent(
     return { ok: false, error: "not_generated" };
   }
 
+  // A new plan's content comes from a generation: everything in it is AI's.
+  const normalized = normalizeActions(content.actionPlan, null, {
+    regenerated: true,
+  });
+
+  if (!normalized.ok) {
+    return { ok: false, error: normalized.error };
+  }
+
   return {
     ok: true,
     plan: {
       id,
       title: getPlanTitle(content.sustainabilityCase),
       ...content,
-      actionPlan: content.actionPlan,
+      actionPlan: normalized.actionPlan,
+      originalAiOutput: normalized.actionPlan,
+      changeRequests: [],
+      approvedVersion: null,
       governanceReview: buildGovernanceReview({
         approved: false,
         completed: false,
@@ -187,7 +230,6 @@ export function createPlanFromContent(
 
 const FIELDS_LOCKED_AFTER_APPROVAL = [
   "sustainabilityCase",
-  "actionPlan",
   "generationId",
   "owner",
   "priority",
@@ -199,8 +241,12 @@ const FIELDS_LOCKED_AFTER_APPROVAL = [
 /**
  * Applies edited content to an existing plan, enforcing the lock rules:
  * - draft / pending approval: everything is editable
- * - approved: only implementation notes and KPI progress
- * - completed: only implementation notes
+ * - approved: only action progress and KPI progress
+ * - completed: nothing in the plan (implementation notes are separate rows)
+ *
+ * Editing the plan does not answer a reviewer's change request; that takes an
+ * explicit `resubmit` with a response to each request, so an unrelated edit
+ * can never silently clear a reviewer's concern.
  */
 export function applyContentUpdate(
   existing: StoredActionPlan,
@@ -214,22 +260,35 @@ export function applyContentUpdate(
   const existingContent = planToContent(existing);
 
   if (existing.approved || existing.completed) {
-    const lockedFieldChanged = FIELDS_LOCKED_AFTER_APPROVAL.some(
-      (field) => !deepEqual(existingContent[field], content[field]),
-    );
-    const kpiChanged = !deepEqual(existing.kpiProgress, content.kpiProgress);
+    const lockedFieldChanged =
+      FIELDS_LOCKED_AFTER_APPROVAL.some(
+        (field) => !deepEqual(existingContent[field], content[field]),
+      ) ||
+      !deepEqual(
+        coreActionView(existingContent.actionPlan),
+        coreActionView(content.actionPlan),
+      );
+    const progressChanged =
+      !deepEqual(existing.kpiProgress, content.kpiProgress) ||
+      !deepEqual(
+        trackingView(existingContent.actionPlan),
+        trackingView(content.actionPlan),
+      );
 
-    if (lockedFieldChanged || (existing.completed && kpiChanged)) {
+    if (lockedFieldChanged || (existing.completed && progressChanged)) {
       return { ok: false, error: "plan_locked" };
     }
   }
 
   const generationChanged = existing.generationId !== content.generationId;
-  // Revising the plan itself answers a reviewer's change request.
-  const revised =
-    existing.reviewStatus === "changes_requested" &&
-    permissionsForContentChange(existingContent, content).includes("plan:edit");
-  const reviewStatus = revised ? "none" : existing.reviewStatus;
+  const normalized = normalizeActions(content.actionPlan, existing.actionPlan, {
+    regenerated: generationChanged,
+  });
+
+  if (!normalized.ok) {
+    return { ok: false, error: normalized.error };
+  }
+
   const auditTimestamp = generationChanged
     ? (generatedAt ?? now)
     : existing.governanceReview.auditTimestamp;
@@ -240,13 +299,15 @@ export function applyContentUpdate(
       ...existing,
       title: getPlanTitle(content.sustainabilityCase),
       ...content,
-      actionPlan: content.actionPlan,
-      reviewStatus,
-      reviewComment: revised ? null : existing.reviewComment,
+      actionPlan: normalized.actionPlan,
+      // The baseline moves only when the AI produces a new plan.
+      originalAiOutput: generationChanged
+        ? normalized.actionPlan
+        : existing.originalAiOutput,
       governanceReview: buildGovernanceReview({
         approved: existing.approved,
         completed: existing.completed,
-        changesRequested: reviewStatus === "changes_requested",
+        changesRequested: existing.reviewStatus === "changes_requested",
         generatedAt: auditTimestamp,
       }),
       updatedAt: now,
@@ -265,7 +326,6 @@ export function planToContent(plan: StoredActionPlan): PlanContent {
     nextReviewDate: plan.nextReviewDate,
     readinessChecklist: plan.readinessChecklist,
     kpiProgress: plan.kpiProgress,
-    actionNotes: plan.actionNotes,
   };
 }
 
@@ -295,6 +355,10 @@ export function transitionPlan(
         return { ok: false, error: "already_approved" };
       }
 
+      if (plan.reviewStatus === "changes_requested") {
+        return { ok: false, error: "changes_pending" };
+      }
+
       // Separation of duties: the author of a plan cannot approve it.
       if (actor && plan.createdBy && plan.createdBy.id === actor.id) {
         return { ok: false, error: "self_approval_forbidden" };
@@ -310,6 +374,9 @@ export function transitionPlan(
           ...withApproval(plan, true, false, now),
           reviewStatus: "none",
           reviewComment: null,
+          // `persistPlan` bumps the version by exactly one, so approval
+          // takes effect in the version after this one.
+          approvedVersion: plan.version + 1,
           approvedBy: actor,
           approvedAt: now,
           governanceReview: buildGovernanceReview({
@@ -380,8 +447,34 @@ export function transitionPlan(
         ok: true,
         plan: {
           ...withApproval(plan, false, false, now),
+          approvedVersion: null,
           approvedBy: null,
           approvedAt: null,
+        },
+      };
+    }
+
+    case "resubmit": {
+      if (plan.approved || plan.completed) {
+        return { ok: false, error: "already_approved" };
+      }
+
+      if (plan.reviewStatus !== "changes_requested") {
+        return { ok: false, error: "no_open_request" };
+      }
+
+      return {
+        ok: true,
+        plan: {
+          ...plan,
+          reviewStatus: "none",
+          reviewComment: null,
+          updatedAt: now,
+          governanceReview: buildGovernanceReview({
+            approved: false,
+            completed: false,
+            generatedAt: plan.governanceReview.auditTimestamp,
+          }),
         },
       };
     }

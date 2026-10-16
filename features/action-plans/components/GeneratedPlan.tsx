@@ -1,9 +1,17 @@
-import type { AIActionPlan, GovernanceReview, SourceRef } from "@/lib/types";
+import type { AIActionPlan, GovernanceReview } from "@/lib/types";
+import type { SessionUser } from "@/lib/schemas/action-plan";
 import { formatDate, getActionPlanSections } from "../domain/plan-utils";
+import { ActionList } from "./ActionList";
+import { sourceLabel } from "./SourceChips";
 
-function sourceLabel(source: SourceRef) {
-  return `${source.documentTitle} v${source.documentVersion} ${source.sectionRef}`;
-}
+export type ActionEditing = {
+  original: AIActionPlan | null;
+  department: string;
+  people: SessionUser[];
+  canEdit: boolean;
+  canTrack: boolean;
+  onChange: (actionPlan: AIActionPlan) => void;
+};
 
 function GroundingBanner({ actionPlan }: { actionPlan: AIActionPlan }) {
   const { grounding, recommendedOperationalActions: actions } = actionPlan;
@@ -45,46 +53,14 @@ function GroundingBanner({ actionPlan }: { actionPlan: AIActionPlan }) {
   );
 }
 
-function SourceChips({
-  sourceIds,
-  sources,
-}: {
-  sourceIds: string[];
-  sources: SourceRef[];
-}) {
-  if (sourceIds.length === 0) {
-    return (
-      <span className="mt-2 inline-flex rounded-md border border-stone-200 bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-600">
-        No approved source
-      </span>
-    );
-  }
-
-  return (
-    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Sources">
-      {sourceIds.map((id) => {
-        const source = sources.find((candidate) => candidate.id === id);
-
-        return source ? (
-          <li
-            key={id}
-            title={source.heading}
-            className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-900"
-          >
-            {sourceLabel(source)}
-          </li>
-        ) : null;
-      })}
-    </ul>
-  );
-}
-
 export function GeneratedPlan({
   actionPlan,
   governanceReview,
+  actionEditing,
 }: {
   actionPlan: AIActionPlan;
   governanceReview: GovernanceReview;
+  actionEditing: ActionEditing;
 }) {
   return (
     <div className="space-y-4">
@@ -120,20 +96,15 @@ export function GeneratedPlan({
             </ul>
           ) : null}
           {section.actions ? (
-            <ul className="mt-3 space-y-4 text-sm leading-6 text-stone-600">
-              {section.actions.map((item) => (
-                <li key={item.action} className="flex gap-3">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-800" />
-                  <span>
-                    {item.action}
-                    <SourceChips
-                      sourceIds={item.sourceIds}
-                      sources={actionPlan.sources}
-                    />
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <ActionList
+              actionPlan={actionPlan}
+              original={actionEditing.original}
+              department={actionEditing.department}
+              people={actionEditing.people}
+              canEdit={actionEditing.canEdit}
+              canTrack={actionEditing.canTrack}
+              onChange={actionEditing.onChange}
+            />
           ) : null}
         </section>
       ))}

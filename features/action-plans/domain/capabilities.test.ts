@@ -69,7 +69,7 @@ describe("editor capabilities", () => {
     expect(caps).toMatchObject({
       canEditCore: false,
       canGenerate: false,
-      canEditNotes: true,
+      canAddNotes: true,
       canComplete: true,
       canResetApproval: true,
     });
@@ -81,7 +81,8 @@ describe("editor capabilities", () => {
 
     expect(caps).toMatchObject({
       canEditKpi: false,
-      canEditNotes: true,
+      canTrack: false,
+      canAddNotes: true,
       canComplete: false,
       canResetApproval: false,
     });
@@ -91,13 +92,37 @@ describe("editor capabilities", () => {
     expect(getEditorCapabilities(engineering, approved)).toMatchObject({
       canEditCore: false,
       canEditKpi: true,
-      canEditNotes: true,
+      canTrack: true,
+      canEditActions: false,
+      canAddNotes: true,
       canApprove: false,
     });
     expect(getEditorCapabilities(procurement, approved)).toMatchObject({
       canEditKpi: false,
-      canEditNotes: false,
+      canTrack: false,
+      canAddNotes: false,
       canSave: false,
     });
+  });
+
+  it("lets actions be edited only after the first save, and only while unapproved", () => {
+    expect(getEditorCapabilities(manager, base).canEditActions).toBe(true);
+    expect(
+      getEditorCapabilities(manager, { ...base, id: null }).canEditActions,
+    ).toBe(false);
+    expect(getEditorCapabilities(manager, approved).canEditActions).toBe(false);
+    expect(getEditorCapabilities(reviewer, base).canEditActions).toBe(false);
+  });
+
+  it("blocks approval while changes are requested, and offers resubmission to the author", () => {
+    const requested = { ...base, reviewStatus: "changes_requested" as const };
+
+    expect(getEditorCapabilities(reviewer, base).canApprove).toBe(true);
+    expect(getEditorCapabilities(reviewer, requested).canApprove).toBe(false);
+    expect(getEditorCapabilities(manager, requested).canResubmit).toBe(true);
+    expect(getEditorCapabilities(manager, base).canResubmit).toBe(false);
+    expect(getEditorCapabilities(engineering, requested).canResubmit).toBe(
+      false,
+    );
   });
 });

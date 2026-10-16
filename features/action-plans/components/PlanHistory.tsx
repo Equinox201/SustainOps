@@ -9,6 +9,8 @@ const EVENT_LABELS: Record<AuditEventType, string> = {
   action_plan_generated: "AI plan generated",
   action_plan_updated: "Edited",
   action_notes_updated: "Implementation notes updated",
+  note_added: "Note added",
+  plan_resubmitted: "Resubmitted for review",
   kpi_progress_updated: "KPI progress updated",
   action_plan_approved: "Approved",
   changes_requested: "Changes requested",

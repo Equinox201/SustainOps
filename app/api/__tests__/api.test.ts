@@ -4,8 +4,17 @@ import { demoActionPlans } from "@/lib/demo-plans";
 import type { PlanContent } from "@/lib/schemas/action-plan";
 import { setDbForTesting, type Database } from "@/lib/server/db";
 import { createTestDb } from "@/lib/server/test-db";
-import { GET as listPlansRoute, POST as createPlanRoute } from "../action-plans/route";
+import {
+  GET as listPlansRoute,
+  POST as createPlanRoute,
+} from "../action-plans/route";
 import { POST as transitionRoute } from "../action-plans/[id]/transition/route";
+import {
+  GET as listNotesRoute,
+  POST as addNoteRoute,
+} from "../action-plans/[id]/notes/route";
+import { GET as listRevisionsRoute } from "../action-plans/[id]/revisions/route";
+import { GET as getRevisionRoute } from "../action-plans/[id]/revisions/[version]/route";
 import { POST as demoRoute } from "../action-plans/demo/route";
 import { POST as generateRoute } from "../action-plans/generate/route";
 import { GET as auditRoute } from "../audit-events/route";
@@ -36,7 +45,12 @@ const noParams = { params: Promise.resolve({}) };
 
 function request(
   path: string,
-  { method = "GET", body, cookie, contentType = "application/json" }: {
+  {
+    method = "GET",
+    body,
+    cookie,
+    contentType = "application/json",
+  }: {
     method?: string;
     body?: unknown;
     cookie?: string;
@@ -83,14 +97,16 @@ function content(overrides: Partial<PlanContent> = {}): PlanContent {
       staffMessageReady: true,
     },
     kpiProgress: { baseline: "", current: "", target: "", latestUpdate: "" },
-    actionNotes: "",
     ...overrides,
   };
 }
 
 describe("authentication", () => {
   it("answers 401 with a structured error when not signed in", async () => {
-    const response = await listPlansRoute(request("/api/action-plans"), noParams);
+    const response = await listPlansRoute(
+      request("/api/action-plans"),
+      noParams,
+    );
     const body = await response.json();
 
     expect(response.status).toBe(401);
@@ -135,7 +151,10 @@ describe("authentication", () => {
 
   it("does not sign in unknown users", async () => {
     const response = await loginRoute(
-      request("/api/auth/login", { method: "POST", body: { userId: "nobody" } }),
+      request("/api/auth/login", {
+        method: "POST",
+        body: { userId: "nobody" },
+      }),
       noParams,
     );
 
@@ -290,12 +309,20 @@ describe("authorization and validation", () => {
     const reviewer = await signIn("usr_daniel_ortiz");
 
     expect(
-      (await auditRoute(request("/api/audit-events", { cookie: department }), noParams))
-        .status,
+      (
+        await auditRoute(
+          request("/api/audit-events", { cookie: department }),
+          noParams,
+        )
+      ).status,
     ).toBe(403);
     expect(
-      (await auditRoute(request("/api/audit-events", { cookie: reviewer }), noParams))
-        .status,
+      (
+        await auditRoute(
+          request("/api/audit-events", { cookie: reviewer }),
+          noParams,
+        )
+      ).status,
     ).toBe(200);
   });
 
@@ -340,7 +367,10 @@ describe("public demo operations", () => {
   });
 
   it("refuses the scheduled reset without the cron secret", async () => {
-    const none = await cronResetRoute(request("/api/cron/reset-demo"), noParams);
+    const none = await cronResetRoute(
+      request("/api/cron/reset-demo"),
+      noParams,
+    );
     expect(none.status).toBe(401);
 
     const wrong = await cronResetRoute(
@@ -393,5 +423,156 @@ describe("public demo operations", () => {
 
     expect((await reset(reviewer)).status).toBe(403);
     expect((await reset(manager)).status).toBe(200);
+  });
+});
+
+describe("notes, revisions and resubmission", () => {
+  async function plan() {
+    const manager = await signIn("usr_maya_chen");
+    const created = await createPlanRoute(
+      request("/api/action-plans", {
+        method: "POST",
+        body: content(),
+        cookie: manager,
+      }),
+      noParams,
+    );
+    const { plan } = await created.json();
+
+    return { manager, id: plan.id as string };
+  }
+
+  const on = (id: string, extra: { version?: string } = {}) => ({
+    params: Promise.resolve({ id, version: extra.version ?? "1" }),
+  });
+
+  it("appends notes, lists them, and refuses a reviewer and bad bodies", async () => {
+    const { manager, id } = await plan();
+    const reviewer = await signIn("usr_daniel_ortiz");
+    const path = `/api/action-plans/${id}/notes`;
+
+    const added = await addNoteRoute(
+      request(path, {
+        method: "POST",
+        body: { body: "Briefing delivered." },
+        cookie: manager,
+      }),
+      on(id),
+    );
+    expect(added.status).toBe(201);
+    expect((await added.json()).note).toMatchObject({
+      body: "Briefing delivered.",
+      author: { name: "Maya Chen" },
+    });
+
+    const listed = await listNotesRoute(
+      request(path, { cookie: manager }),
+      on(id),
+    );
+    expect((await listed.json()).notes).toHaveLength(1);
+
+    const forbidden = await addNoteRoute(
+      request(path, {
+        method: "POST",
+        body: { body: "Reviewer note" },
+        cookie: reviewer,
+      }),
+      on(id),
+    );
+    expect(forbidden.status).toBe(403);
+
+    for (const body of [{ body: "" }, { body: "x", extra: 1 }]) {
+      const invalid = await addNoteRoute(
+        request(path, { method: "POST", body, cookie: manager }),
+        on(id),
+      );
+      expect(invalid.status).toBe(400);
+    }
+  });
+
+  it("lists versions, returns one, and rejects a malformed version", async () => {
+    const { manager, id } = await plan();
+    const base = `/api/action-plans/${id}/revisions`;
+
+    const list = await listRevisionsRoute(
+      request(base, { cookie: manager }),
+      on(id),
+    );
+    const { revisions } = await list.json();
+    expect(revisions).toHaveLength(1);
+    expect(revisions[0]).toMatchObject({
+      version: 1,
+      eventType: "action_plan_created",
+    });
+    expect(revisions[0]).not.toHaveProperty("snapshot");
+
+    const one = await getRevisionRoute(
+      request(`${base}/1`, { cookie: manager }),
+      on(id, { version: "1" }),
+    );
+    expect((await one.json()).revision.snapshot.owner).toBe("Jordan Lee");
+
+    const bad = await getRevisionRoute(
+      request(`${base}/abc`, { cookie: manager }),
+      on(id, { version: "abc" }),
+    );
+    expect(bad.status).toBe(400);
+
+    const missing = await getRevisionRoute(
+      request(`${base}/9`, { cookie: manager }),
+      on(id, { version: "9" }),
+    );
+    expect(missing.status).toBe(404);
+  });
+
+  it("answers change requests through the transition endpoint", async () => {
+    const { manager, id } = await plan();
+    const reviewer = await signIn("usr_daniel_ortiz");
+    const transition = (cookie: string, body: Record<string, unknown>) =>
+      transitionRoute(
+        request(`/api/action-plans/${id}/transition`, {
+          method: "POST",
+          body,
+          cookie,
+        }),
+        on(id),
+      );
+
+    const requested = await transition(reviewer, {
+      event: "request_changes",
+      expectedVersion: 1,
+      comment: "Add a KPI.",
+    });
+    const { plan: asked } = await requested.json();
+    expect(asked.changeRequests).toHaveLength(1);
+
+    // Approving around an open request is refused.
+    const blocked = await transition(reviewer, {
+      event: "approve",
+      expectedVersion: asked.version,
+    });
+    expect(blocked.status).toBe(409);
+    expect((await blocked.json()).error.code).toBe("changes_pending");
+
+    // Unanswered requests cannot be resubmitted.
+    const unanswered = await transition(manager, {
+      event: "resubmit",
+      expectedVersion: asked.version,
+      responses: [],
+    });
+    expect(unanswered.status).toBe(422);
+
+    const answered = await transition(manager, {
+      event: "resubmit",
+      expectedVersion: asked.version,
+      responses: [
+        { requestId: asked.changeRequests[0].id, response: "KPI added." },
+      ],
+    });
+    expect(answered.status).toBe(200);
+    expect((await answered.json()).plan).toMatchObject({
+      reviewStatus: "none",
+      changeRequests: [{ status: "addressed", response: "KPI added." }],
+    });
   });
 });

@@ -1,7 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { demoActionPlans } from "@/lib/demo-plans";
-import type { PlanContent } from "@/lib/schemas/action-plan";
+import type { PlanContent, StoredAction } from "@/lib/schemas/action-plan";
 import type { Principal } from "@/features/action-plans/domain/permissions";
 import type { Database } from "./db";
 import { schema } from "./db";
@@ -68,8 +68,26 @@ function makeContent(overrides: Partial<PlanContent> = {}): PlanContent {
       staffMessageReady: true,
     },
     kpiProgress: { baseline: "", current: "", target: "", latestUpdate: "" },
-    actionNotes: "",
     ...overrides,
+  };
+}
+
+/** Returns content whose `index`th action has `patch` applied. */
+function editAction(
+  content: PlanContent,
+  index: number,
+  patch: Partial<StoredAction>,
+): PlanContent {
+  const plan = content.actionPlan!;
+
+  return {
+    ...content,
+    actionPlan: {
+      ...plan,
+      recommendedOperationalActions: plan.recommendedOperationalActions.map(
+        (item, position) => (position === index ? { ...item, ...patch } : item),
+      ),
+    },
   };
 }
 
@@ -105,7 +123,13 @@ const updatePlan = async (
   content: PlanContent,
   context: ReturnType<typeof as>,
 ) =>
-  repository.updatePlan(database, id, content, await currentVersion(id), context);
+  repository.updatePlan(
+    database,
+    id,
+    content,
+    await currentVersion(id),
+    context,
+  );
 
 const transitionPlanState = async (
   database: Database,
@@ -200,14 +224,14 @@ describe("plan lifecycle", () => {
       db,
       plan.id,
       "complete",
-      { content: makeContent({ actionNotes: "All actions delivered" }) },
+      { content: editAction(makeContent(), 0, { status: "done" }) },
       as(MAYA),
     );
 
-    expect(done).toMatchObject({
-      completed: true,
-      actionNotes: "All actions delivered",
-    });
+    expect(done).toMatchObject({ completed: true });
+    expect(done.actionPlan!.recommendedOperationalActions[0].status).toBe(
+      "done",
+    );
   });
 
   it("rolls back pending edits when the transition is refused", async () => {
@@ -260,7 +284,7 @@ describe("plan lifecycle", () => {
     );
   });
 
-  it("allows notes and KPIs while approved, and only notes once done", async () => {
+  it("allows action progress and KPIs while approved, and neither once done", async () => {
     const plan = await createPlan(db, makeContent(), as(MAYA));
     await transitionPlanState(db, plan.id, "approve", NO_EDITS, as(DANIEL));
 
@@ -270,13 +294,17 @@ describe("plan lifecycle", () => {
       target: "1,000 kg",
       latestUpdate: "Trending down",
     };
-    const withNotes = await updatePlan(
+    const progressed = await updatePlan(
       db,
       plan.id,
-      makeContent({ actionNotes: "Week 1 briefing complete", kpiProgress: kpi }),
+      editAction(makeContent({ kpiProgress: kpi }), 0, {
+        status: "in_progress",
+      }),
       as(MAYA),
     );
-    expect(withNotes.actionNotes).toBe("Week 1 briefing complete");
+    expect(progressed.actionPlan!.recommendedOperationalActions[0].status).toBe(
+      "in_progress",
+    );
 
     await transitionPlanState(db, plan.id, "complete", NO_EDITS, as(MAYA));
 
@@ -284,22 +312,20 @@ describe("plan lifecycle", () => {
       updatePlan(
         db,
         plan.id,
-        makeContent({
-          actionNotes: "Closed out",
-          kpiProgress: { ...kpi, current: "changed" },
-        }),
+        editAction(makeContent({ kpiProgress: kpi }), 0, { status: "done" }),
         as(MAYA),
       ),
       "plan_locked",
     );
-
-    const closed = await updatePlan(
-      db,
-      plan.id,
-      makeContent({ actionNotes: "Closed out", kpiProgress: kpi }),
-      as(MAYA),
+    await expectApiError(
+      updatePlan(
+        db,
+        plan.id,
+        makeContent({ kpiProgress: { ...kpi, current: "changed" } }),
+        as(MAYA),
+      ),
+      "plan_locked",
     );
-    expect(closed.actionNotes).toBe("Closed out");
   });
 
   it("resets approval, clears the approver, and unlocks editing", async () => {
@@ -379,7 +405,7 @@ describe("plan lifecycle", () => {
 });
 
 describe("audit accuracy", () => {
-  it("does not log KPI or notes changes that did not happen", async () => {
+  it("does not log KPI changes that did not happen", async () => {
     const kpi = {
       baseline: "1,000 kg",
       current: "1,100 kg",
@@ -388,7 +414,7 @@ describe("audit accuracy", () => {
     };
     const plan = await createPlan(
       db,
-      makeContent({ kpiProgress: kpi, actionNotes: "Kick-off done" }),
+      makeContent({ kpiProgress: kpi }),
       as(MAYA),
     );
 
@@ -398,7 +424,7 @@ describe("audit accuracy", () => {
     await updatePlan(
       db,
       plan.id,
-      makeContent({ priority: "Low", kpiProgress: kpi, actionNotes: "Kick-off done" }),
+      makeContent({ priority: "Low", kpiProgress: kpi }),
       as(MAYA),
     );
 
@@ -407,7 +433,6 @@ describe("audit accuracy", () => {
       history.filter((event) => event.eventType === type).length;
 
     expect(count("kpi_progress_updated")).toBe(1); // only on creation
-    expect(count("action_notes_updated")).toBe(1);
     expect(count("action_plan_updated")).toBe(1);
   });
 });
@@ -447,7 +472,7 @@ describe("review: request changes", () => {
     });
   });
 
-  it("clears the request when the author revises the plan", async () => {
+  it("is not cleared by editing the plan; only resubmitting answers it", async () => {
     const plan = await createPlan(db, makeContent(), as(MAYA));
     await transitionPlanState(
       db,
@@ -465,10 +490,15 @@ describe("review: request changes", () => {
     );
 
     expect(revised).toMatchObject({
-      reviewStatus: "none",
-      reviewComment: null,
-      governanceReview: { reviewerStatus: "Pending" },
+      reviewStatus: "changes_requested",
+      reviewComment: "Add a measurable KPI.",
     });
+    // And it cannot be approved around.
+    await expectApiError(
+      transitionPlanState(db, plan.id, "approve", NO_EDITS, as(DANIEL)),
+      "changes_pending",
+      409,
+    );
   });
 });
 
@@ -514,35 +544,43 @@ describe("authorization", () => {
     );
   });
 
-  it("department managers can add notes and KPIs, but not edit the plan", async () => {
+  it("department managers can track progress and KPIs, but not edit the plan", async () => {
     const plan = await createPlan(db, makeContent(), as(MAYA)); // Engineering
     await transitionPlanState(db, plan.id, "approve", NO_EDITS, as(DANIEL));
 
     const updated = await updatePlan(
       db,
       plan.id,
-      makeContent({
-        actionNotes: "Floor 7 shutdown piloted",
-        kpiProgress: {
-          baseline: "100",
-          current: "92",
-          target: "85",
-          latestUpdate: "Down 8%",
-        },
-      }),
+      editAction(
+        makeContent({
+          kpiProgress: {
+            baseline: "100",
+            current: "92",
+            target: "85",
+            latestUpdate: "Down 8%",
+          },
+        }),
+        0,
+        { status: "in_progress" },
+      ),
       as(PRIYA),
     );
-    expect(updated.actionNotes).toBe("Floor 7 shutdown piloted");
+    expect(updated.actionPlan!.recommendedOperationalActions[0].status).toBe(
+      "in_progress",
+    );
 
     await expectApiError(
       updatePlan(
         db,
         plan.id,
-        makeContent({
-          actionNotes: "Floor 7 shutdown piloted",
-          kpiProgress: updated.kpiProgress,
-          owner: "Someone Else",
-        }),
+        editAction(
+          makeContent({
+            kpiProgress: updated.kpiProgress,
+            owner: "Someone Else",
+          }),
+          0,
+          { status: "in_progress" },
+        ),
         as(PRIYA),
       ),
       "forbidden",
@@ -582,7 +620,7 @@ describe("authorization", () => {
         foodAndBeverage.id,
         makeContent({
           sustainabilityCase: demoActionPlans[1].sustainabilityCase,
-          actionNotes: "snooping",
+          owner: "snooping",
         }),
         as(PRIYA),
       ),
@@ -733,12 +771,22 @@ describe("concurrent edits", () => {
     );
 
     const stored = await getPlan(db, plan.id, MAYA);
-    expect(stored).toMatchObject({ priority: "Low", owner: "Jordan Lee", version: 2 });
+    expect(stored).toMatchObject({
+      priority: "Low",
+      owner: "Jordan Lee",
+      version: 2,
+    });
   });
 
   it("reports the current version so the client can recover", async () => {
     const plan = await createPlan(db, makeContent(), as(MAYA));
-    await repository.updatePlan(db, plan.id, makeContent({ priority: "Low" }), 1, as(MAYA));
+    await repository.updatePlan(
+      db,
+      plan.id,
+      makeContent({ priority: "Low" }),
+      1,
+      as(MAYA),
+    );
 
     await expect(
       repository.updatePlan(db, plan.id, makeContent(), 1, as(MAYA)),
@@ -776,8 +824,20 @@ describe("concurrent edits", () => {
     const plan = await createPlan(db, makeContent(), as(MAYA));
 
     const results = await Promise.allSettled([
-      repository.updatePlan(db, plan.id, makeContent({ priority: "Low" }), 1, as(MAYA)),
-      repository.updatePlan(db, plan.id, makeContent({ priority: "Medium" }), 1, as(MAYA)),
+      repository.updatePlan(
+        db,
+        plan.id,
+        makeContent({ priority: "Low" }),
+        1,
+        as(MAYA),
+      ),
+      repository.updatePlan(
+        db,
+        plan.id,
+        makeContent({ priority: "Medium" }),
+        1,
+        as(MAYA),
+      ),
     ]);
 
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);

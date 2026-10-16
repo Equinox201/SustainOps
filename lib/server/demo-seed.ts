@@ -49,7 +49,9 @@ export async function buildGroundedDemoPlans(
         )
     : [];
 
-  const byKey = new Map(rows.map((row) => [`${row.slug}|${row.sectionRef}`, row]));
+  const byKey = new Map(
+    rows.map((row) => [`${row.slug}|${row.sectionRef}`, row]),
+  );
 
   return demoActionPlans.map((plan) => {
     const citations = demoCitations[plan.id];
@@ -93,29 +95,28 @@ export async function buildGroundedDemoPlans(
           sourceIds.push(source.id);
         }
 
-        return { action: item.action, sourceIds };
+        return { ...item, sourceIds };
       },
     );
 
     const sources = [...aliasByKey.values()];
     const cited = actions.filter((item) => item.sourceIds.length > 0).length;
 
-    return {
-      ...plan,
-      actionPlan: {
-        ...plan.actionPlan,
-        recommendedOperationalActions: actions,
-        sources,
-        grounding: {
-          status:
-            cited === 0
-              ? ("ungrounded" as const)
-              : cited === actions.length
-                ? ("grounded" as const)
-                : ("partial" as const),
-          retrievedCount: sources.length,
-        },
+    const actionPlan = {
+      ...plan.actionPlan,
+      recommendedOperationalActions: actions,
+      sources,
+      grounding: {
+        status:
+          cited === 0
+            ? ("ungrounded" as const)
+            : cited === actions.length
+              ? ("grounded" as const)
+              : ("partial" as const),
+        retrievedCount: sources.length,
       },
     };
+
+    return { ...plan, actionPlan, originalAiOutput: actionPlan };
   });
 }

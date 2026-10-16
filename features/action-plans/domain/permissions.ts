@@ -1,5 +1,6 @@
 import type { PlanContent } from "@/lib/schemas/action-plan";
 import { deepEqual } from "./deep-equal";
+import { coreActionView, trackingView } from "./action-items";
 
 /**
  * Role-based access rules. Pure and shared: the server enforces them, the UI
@@ -20,6 +21,8 @@ export type Permission =
   | "plan:generate"
   | "plan:edit"
   | "plan:notes"
+  | "plan:track"
+  | "plan:resubmit"
   | "plan:kpi"
   | "plan:delete"
   | "plan:approve"
@@ -58,6 +61,8 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "plan:generate",
     "plan:edit",
     "plan:notes",
+    "plan:track",
+    "plan:resubmit",
     "plan:kpi",
     "plan:delete",
     "plan:complete",
@@ -65,7 +70,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "audit:view",
     "demo:reset",
   ],
-  department_manager: ["plan:view", "plan:notes", "plan:kpi"],
+  department_manager: ["plan:view", "plan:notes", "plan:track", "plan:kpi"],
   reviewer: [
     "plan:view",
     "plan:approve",
@@ -102,35 +107,47 @@ export function can(
   );
 }
 
-/** Which permissions an edit needs, based on which fields it changes. */
+/**
+ * Which permissions an edit needs, based on which fields it changes.
+ *
+ * Actions are split in two: what they say, who does them and by when is part
+ * of the plan (`plan:edit`); their progress and blockers are tracking
+ * (`plan:track`), which the people doing the work may update.
+ */
 export function permissionsForContentChange(
   before: PlanContent,
   after: PlanContent,
 ): Permission[] {
   const required: Permission[] = [];
-  const coreChanged = (
-    [
-      "sustainabilityCase",
-      "actionPlan",
-      "generationId",
-      "owner",
-      "priority",
-      "targetDate",
-      "nextReviewDate",
-      "readinessChecklist",
-    ] as const
-  ).some((field) => !deepEqual(before[field], after[field]));
+  const coreChanged =
+    (
+      [
+        "sustainabilityCase",
+        "generationId",
+        "owner",
+        "priority",
+        "targetDate",
+        "nextReviewDate",
+        "readinessChecklist",
+      ] as const
+    ).some((field) => !deepEqual(before[field], after[field])) ||
+    !deepEqual(
+      coreActionView(before.actionPlan),
+      coreActionView(after.actionPlan),
+    );
 
   if (coreChanged) {
     required.push("plan:edit");
   }
 
-  if (!deepEqual(before.kpiProgress, after.kpiProgress)) {
-    required.push("plan:kpi");
+  if (
+    !deepEqual(trackingView(before.actionPlan), trackingView(after.actionPlan))
+  ) {
+    required.push("plan:track");
   }
 
-  if (before.actionNotes !== after.actionNotes) {
-    required.push("plan:notes");
+  if (!deepEqual(before.kpiProgress, after.kpiProgress)) {
+    required.push("plan:kpi");
   }
 
   return required;

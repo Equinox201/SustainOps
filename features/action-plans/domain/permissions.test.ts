@@ -74,15 +74,56 @@ describe("permissionsForContentChange", () => {
   });
 
   it("maps each edited field group to its permission", () => {
+    const before = base();
+    const actions = before.actionPlan!.recommendedOperationalActions;
     const next = {
-      ...base(),
+      ...before,
       owner: "New",
-      actionNotes: "note",
       kpiProgress: { baseline: "1", current: "", target: "", latestUpdate: "" },
+      actionPlan: {
+        ...before.actionPlan!,
+        recommendedOperationalActions: actions.map((item, index) =>
+          index === 0 ? { ...item, status: "in_progress" as const } : item,
+        ),
+      },
     };
 
-    expect(permissionsForContentChange(base(), next).sort()).toEqual(
-      ["plan:edit", "plan:kpi", "plan:notes"].sort(),
+    expect(permissionsForContentChange(before, next).sort()).toEqual(
+      ["plan:edit", "plan:kpi", "plan:track"].sort(),
     );
+  });
+
+  it("treats what an action says and who does it as part of the plan, progress as tracking", () => {
+    const before = base();
+    const [first, ...rest] = before.actionPlan!.recommendedOperationalActions;
+    const withActions = (items: typeof rest) => ({
+      ...before,
+      actionPlan: {
+        ...before.actionPlan!,
+        recommendedOperationalActions: items,
+      },
+    });
+
+    expect(
+      permissionsForContentChange(
+        before,
+        withActions([{ ...first, action: "Reworded" }, ...rest]),
+      ),
+    ).toEqual(["plan:edit"]);
+    expect(
+      permissionsForContentChange(
+        before,
+        withActions([{ ...first, assigneeId: "usr_priya_nair" }, ...rest]),
+      ),
+    ).toEqual(["plan:edit"]);
+    expect(
+      permissionsForContentChange(
+        before,
+        withActions([
+          { ...first, status: "blocked" as const, blockedReason: "No access" },
+          ...rest,
+        ]),
+      ),
+    ).toEqual(["plan:track"]);
   });
 });

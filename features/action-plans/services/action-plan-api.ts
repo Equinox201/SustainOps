@@ -1,12 +1,21 @@
 import { z } from "zod";
 import {
   auditEventSchema,
+  noteRequestSchema,
   generationResponseSchema,
   storedActionPlanSchema,
+  type ChangeResponse,
   type PlanContent,
   type SustainabilityCaseInput,
 } from "@/lib/schemas/action-plan";
-import type { AuditEvent, AuditEventType, StoredActionPlan } from "@/lib/types";
+import type {
+  AuditEvent,
+  AuditEventType,
+  PlanNote,
+  PlanRevision,
+  PlanRevisionSummary,
+  StoredActionPlan,
+} from "@/lib/types";
 import type { LifecycleEvent } from "../domain/lifecycle";
 import { apiRequest, type ApiResult } from "./api-client";
 
@@ -87,6 +96,7 @@ export async function transitionPlan(
     expectedVersion: number;
     content?: PlanContent;
     comment?: string;
+    responses?: ChangeResponse[];
   },
 ) {
   return pickPlan(
@@ -97,6 +107,7 @@ export async function transitionPlan(
         expectedVersion: options.expectedVersion,
         content: options.content,
         comment: options.comment,
+        responses: options.responses,
       },
       schema: planResponse,
     }),
@@ -170,4 +181,98 @@ export function resetDemo() {
     method: "POST",
     schema: resetResponse,
   });
+}
+
+// ---- notes and revisions -----------------------------------------------
+
+const notesResponse = z.object({
+  notes: z.array(
+    z.object({
+      id: z.string(),
+      body: z.string(),
+      author: z
+        .object({ id: z.string(), name: z.string(), role: z.string() })
+        .nullable(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+const noteResponse = z.object({
+  note: notesResponse.shape.notes.element,
+});
+const actorShape = z
+  .object({ id: z.string(), name: z.string(), role: z.string() })
+  .nullable();
+const revisionsResponse = z.object({
+  revisions: z.array(
+    z.object({
+      version: z.number(),
+      eventType: z.string(),
+      actor: actorShape,
+      reason: z.string().nullable(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+const revisionResponse = z.object({
+  revision: z.object({
+    version: z.number(),
+    eventType: z.string(),
+    actor: actorShape,
+    reason: z.string().nullable(),
+    createdAt: z.string(),
+    // Validated server-side; the client treats it as the stored snapshot.
+    snapshot: z.custom<PlanRevision["snapshot"]>(
+      (value) => typeof value === "object" && value !== null,
+    ),
+  }),
+});
+
+export async function fetchPlanNotes(id: string) {
+  const result = await apiRequest(
+    `/api/action-plans/${encodeURIComponent(id)}/notes`,
+    { schema: notesResponse },
+  );
+
+  return result.ok
+    ? { ok: true as const, data: result.data.notes satisfies PlanNote[] }
+    : result;
+}
+
+export async function addPlanNote(id: string, body: string) {
+  const result = await apiRequest(
+    `/api/action-plans/${encodeURIComponent(id)}/notes`,
+    {
+      method: "POST",
+      body: noteRequestSchema.parse({ body }),
+      schema: noteResponse,
+    },
+  );
+
+  return result.ok ? { ok: true as const, data: result.data.note } : result;
+}
+
+export async function fetchRevisions(id: string) {
+  const result = await apiRequest(
+    `/api/action-plans/${encodeURIComponent(id)}/revisions`,
+    { schema: revisionsResponse },
+  );
+
+  return result.ok
+    ? {
+        ok: true as const,
+        data: result.data.revisions satisfies PlanRevisionSummary[],
+      }
+    : result;
+}
+
+export async function fetchRevision(id: string, version: number) {
+  const result = await apiRequest(
+    `/api/action-plans/${encodeURIComponent(id)}/revisions/${version}`,
+    { schema: revisionResponse },
+  );
+
+  return result.ok
+    ? { ok: true as const, data: result.data.revision as PlanRevision }
+    : result;
 }

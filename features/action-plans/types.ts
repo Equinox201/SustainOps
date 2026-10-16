@@ -21,7 +21,6 @@ export type EditorDraft = {
   actionPlan: AIActionPlan | null;
   generationId: string | null;
   governanceReview: GovernanceReview;
-  actionNotes: string;
   owner: string;
   priority: StoredActionPlan["priority"];
   targetDate: string;
@@ -30,6 +29,11 @@ export type EditorDraft = {
   kpiProgress: KPIProgress;
   /** Version of the saved plan this draft was loaded from (null if unsaved). */
   version: number | null;
+  /** The version a reviewer approved, if the plan is approved. */
+  approvedVersion: number | null;
+  /** The AI's output as first saved or last regenerated (read-only). */
+  originalAiOutput: AIActionPlan | null;
+  changeRequests: StoredActionPlan["changeRequests"];
   approved: boolean;
   completed: boolean;
   reviewStatus: StoredActionPlan["reviewStatus"];

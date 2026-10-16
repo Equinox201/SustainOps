@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import type { PlanContent } from "@/lib/schemas/action-plan";
+import type { ChangeResponse, PlanContent } from "@/lib/schemas/action-plan";
 import type { StoredActionPlan } from "@/lib/types";
 import {
   defaultSustainabilityCase,
@@ -35,6 +35,7 @@ type PlanActions = {
       expectedVersion: number;
       content?: PlanContent;
       comment?: string;
+      responses?: ChangeResponse[];
     },
   ) => Promise<ApiResult<StoredActionPlan>>;
 };
@@ -42,6 +43,7 @@ type PlanActions = {
 const successMessages: Record<LifecycleEvent, string | null> = {
   approve: null,
   request_changes: "Changes requested. The plan was returned to its authors.",
+  resubmit: "Resubmitted for review with your responses.",
   complete: null,
   reset_approval:
     "Approval reset. Changes require a new approval before implementation.",
@@ -54,7 +56,6 @@ function createEmptyDraft(): EditorDraft {
     actionPlan: null,
     generationId: null,
     governanceReview: emptyGovernanceReview,
-    actionNotes: "",
     owner: "",
     priority: "Medium",
     targetDate: "",
@@ -62,6 +63,9 @@ function createEmptyDraft(): EditorDraft {
     readinessChecklist: { ...emptyReadinessChecklist },
     kpiProgress: { ...emptyKpiProgress },
     version: null,
+    approvedVersion: null,
+    originalAiOutput: null,
+    changeRequests: [],
     approved: false,
     completed: false,
     reviewStatus: "none",
@@ -237,7 +241,10 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
    * are committed by the server in the same transaction as the transition.
    * A brand-new draft is saved first, so the plan exists before approval.
    */
-  async function runLifecycleEvent(event: LifecycleEvent, comment?: string) {
+  async function runLifecycleEvent(
+    event: LifecycleEvent,
+    extra: { comment?: string; responses?: ChangeResponse[] } = {},
+  ) {
     if (!draft) {
       return;
     }
@@ -288,7 +295,8 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     const result = await transition(planId, event, {
       expectedVersion: version,
       content,
-      comment,
+      comment: extra.comment,
+      responses: extra.responses,
     });
 
     if (session !== sessionRef.current) {
@@ -371,7 +379,11 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
       return;
     }
 
-    void runLifecycleEvent("request_changes", comment.trim());
+    void runLifecycleEvent("request_changes", { comment: comment.trim() });
+  }
+
+  function resubmit(responses: ChangeResponse[]) {
+    void runLifecycleEvent("resubmit", { responses });
   }
 
   return {
@@ -395,5 +407,6 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     complete,
     resetApproval,
     requestChanges,
+    resubmit,
   };
 }
