@@ -256,6 +256,7 @@ function Workspace({
             onResetApproval={editor.resetApproval}
             onRequestChanges={editor.requestChanges}
             onResubmit={editor.resubmit}
+            onAcknowledgeDrift={editor.acknowledgeDrift}
           />
         ) : (
           <>

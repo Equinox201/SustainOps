@@ -53,14 +53,29 @@ const aiPlan = {
     {
       action: "Assign rooms by floor when occupancy is low.",
       sourceIds: ["S1"],
+      // A genuine quotation from the energy SOP (section 2.2): verified when
+      // that section is what was retrieved.
+      claimType: "policy_requirement",
+      evidence: {
+        sourceId: "S1",
+        quote: "Front Office assigns rooms by floor where guest preferences allow",
+      },
     },
     {
       action: "Hold a daily Front Office and Engineering check-in.",
       sourceIds: ["S1"],
+      // A paraphrase, not a quotation: the server must reject it.
+      claimType: "policy_requirement",
+      evidence: {
+        sourceId: "S1",
+        quote: "Engineering and Front Office meet every day to confirm floors",
+      },
     },
     {
       action: "Escalate any guest comfort complaint immediately.",
       sourceIds: ["S1"],
+      claimType: "proposal",
+      evidence: null,
     },
   ],
   staffMicroTrainingMessage:

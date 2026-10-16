@@ -114,6 +114,35 @@ describe("editor capabilities", () => {
     expect(getEditorCapabilities(reviewer, base).canEditActions).toBe(false);
   });
 
+  it("offers diagnostics to managers and reviewers of generated plans only", () => {
+    const generated = { ...base, generationId: "gen-1" };
+
+    expect(getEditorCapabilities(manager, generated).canViewDiagnostics).toBe(true);
+    expect(getEditorCapabilities(reviewer, generated).canViewDiagnostics).toBe(true);
+    expect(getEditorCapabilities(engineering, generated).canViewDiagnostics).toBe(false);
+    expect(getEditorCapabilities(manager, base).canViewDiagnostics).toBe(false);
+  });
+
+  it("blocks approval when the case changed since generation, until acknowledged", () => {
+    const drifted = {
+      ...base,
+      sustainabilityCase: {
+        ...base.sustainabilityCase,
+        issue: "A different issue",
+      },
+    };
+
+    expect(getEditorCapabilities(reviewer, drifted).canApprove).toBe(false);
+    expect(getEditorCapabilities(manager, drifted).canAcknowledgeDrift).toBe(true);
+    expect(getEditorCapabilities(reviewer, drifted).canAcknowledgeDrift).toBe(false);
+    expect(getEditorCapabilities(manager, base).canAcknowledgeDrift).toBe(false);
+
+    const acknowledged = { ...drifted, driftAcknowledged: true };
+
+    expect(getEditorCapabilities(reviewer, acknowledged).canApprove).toBe(true);
+    expect(getEditorCapabilities(manager, acknowledged).canAcknowledgeDrift).toBe(false);
+  });
+
   it("blocks approval while changes are requested, and offers resubmission to the author", () => {
     const requested = { ...base, reviewStatus: "changes_requested" as const };
 

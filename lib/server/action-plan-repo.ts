@@ -9,10 +9,14 @@ import type {
   PlanRevision,
   PlanRevisionSummary,
   Priority,
+  RetrievalDiagnostics,
   RevisionSnapshot,
   StoredActionPlan,
 } from "@/lib/types";
-import type { PlanContent } from "@/lib/schemas/action-plan";
+import {
+  aiActionPlanSchema,
+  type PlanContent,
+} from "@/lib/schemas/action-plan";
 import { isEligibleAssignee } from "@/features/action-plans/domain/action-items";
 import {
   applyContentUpdate,
@@ -24,6 +28,7 @@ import {
   type LifecycleError,
   type LifecycleEvent,
   type LifecycleResult,
+  type VerifiedGeneration,
 } from "@/features/action-plans/domain/lifecycle";
 import {
   can,
@@ -63,7 +68,11 @@ const LIFECYCLE_STATUS: Record<LifecycleError, number> = {
   invalid_assignee: 422,
   invalid_actions: 422,
   blank_action: 422,
-  unknown_source: 422,
+  needs_reassessment: 409,
+  no_drift: 409,
+  plan_differs_from_generation: 422,
+  generated_text_locked: 422,
+  generation_required: 422,
   blocked_reason_required: 422,
   already_approved: 409,
   not_approved: 409,
@@ -76,6 +85,7 @@ const TRANSITION_AUDIT_EVENT: Record<LifecycleEvent, AuditEventType> = {
   approve: "action_plan_approved",
   request_changes: "changes_requested",
   resubmit: "plan_resubmitted",
+  acknowledge_drift: "drift_acknowledged",
   complete: "action_plan_completed",
   reset_approval: "approval_reset",
 };
@@ -84,6 +94,7 @@ const TRANSITION_PERMISSION: Record<LifecycleEvent, Permission> = {
   approve: "plan:approve",
   request_changes: "plan:request_changes",
   resubmit: "plan:resubmit",
+  acknowledge_drift: "plan:edit",
   complete: "plan:complete",
   reset_approval: "plan:reset_approval",
 };
@@ -173,6 +184,8 @@ function rowToPlan(
     version: row.version,
     approvedVersion: row.approvedVersion,
     originalAiOutput: row.originalAiOutput,
+    generatedCase: row.generatedCase,
+    driftAcknowledged: row.driftAcknowledged,
     changeRequests: requests,
     approved: row.approved,
     completed: row.completed,
@@ -207,6 +220,8 @@ function planToRow(plan: StoredActionPlan): typeof actionPlans.$inferInsert {
     kpiProgress: plan.kpiProgress,
     originalAiOutput: plan.originalAiOutput,
     approvedVersion: plan.approvedVersion,
+    generatedCase: plan.generatedCase,
+    driftAcknowledged: plan.driftAcknowledged,
     version: plan.version,
     approved: plan.approved,
     completed: plan.completed,
@@ -324,14 +339,26 @@ async function writeRevision(
   });
 }
 
-/** Resolves when a referenced AI generation happened, or fails if unknown. */
-async function resolveGeneration(db: Database, generationId: string | null) {
+/**
+ * Reads back a recorded AI generation: when it happened, the case it was given
+ * and the plan the server kept. A plan may only claim AI provenance from a
+ * generation the server itself recorded and finished.
+ */
+async function resolveGeneration(
+  db: Database,
+  generationId: string | null,
+): Promise<{ generatedAt: string; verified: VerifiedGeneration } | null> {
   if (!generationId) {
     return null;
   }
 
   const [generation] = await db
-    .select({ createdAt: aiGenerations.createdAt })
+    .select({
+      createdAt: aiGenerations.createdAt,
+      status: aiGenerations.status,
+      input: aiGenerations.input,
+      output: aiGenerations.output,
+    })
     .from(aiGenerations)
     .where(eq(aiGenerations.id, generationId));
 
@@ -343,7 +370,20 @@ async function resolveGeneration(db: Database, generationId: string | null) {
     );
   }
 
-  return generation.createdAt.toISOString();
+  const output = aiActionPlanSchema.safeParse(generation.output);
+
+  if (generation.status !== "succeeded" || !generation.input || !output.success) {
+    throw new ApiError(
+      400,
+      "unknown_generation",
+      "The referenced AI generation did not produce a recorded plan.",
+    );
+  }
+
+  return {
+    generatedAt: generation.createdAt.toISOString(),
+    verified: { input: generation.input, output: output.data },
+  };
 }
 
 /**
@@ -563,12 +603,13 @@ export async function createPlan(
   requirePermission(context.actor, "plan:create");
 
   return db.transaction(async (tx) => {
-    const generatedAt = await resolveGeneration(tx, content.generationId);
+    const resolved = await resolveGeneration(tx, content.generationId);
     const plan = unwrap(
       createPlanFromContent(content, {
         id: crypto.randomUUID(),
         now: new Date().toISOString(),
-        generatedAt,
+        generatedAt: resolved?.generatedAt ?? null,
+        generation: resolved?.verified ?? null,
         createdBy: toActorRef(context.actor),
       }),
     );
@@ -605,11 +646,17 @@ export async function updatePlan(
     assertFresh(existing, expectedVersion);
     authorizeContentChange(context.actor, existing, content);
 
-    const generatedAt = await resolveGeneration(tx, content.generationId);
+    // Only a *new* generation needs reading back; an unchanged one is
+    // already part of the plan.
+    const resolved =
+      content.generationId !== existing.generationId
+        ? await resolveGeneration(tx, content.generationId)
+        : null;
     const plan = unwrap(
       applyContentUpdate(existing, content, {
         now: new Date().toISOString(),
-        generatedAt,
+        generatedAt: resolved?.generatedAt ?? null,
+        generation: resolved?.verified ?? null,
       }),
     );
 
@@ -663,12 +710,16 @@ export async function transitionPlanState(
     if (options.content) {
       authorizeContentChange(context.actor, existing, options.content);
 
-      const generatedAt = await resolveGeneration(
-        tx,
-        options.content.generationId,
-      );
+      const resolved =
+        options.content.generationId !== existing.generationId
+          ? await resolveGeneration(tx, options.content.generationId)
+          : null;
       current = unwrap(
-        applyContentUpdate(existing, options.content, { now, generatedAt }),
+        applyContentUpdate(existing, options.content, {
+          now,
+          generatedAt: resolved?.generatedAt ?? null,
+          generation: resolved?.verified ?? null,
+        }),
       );
     }
 
@@ -706,7 +757,7 @@ export async function transitionPlanState(
     await assertAssignable(tx, existing, plan);
 
     const reason =
-      event === "request_changes"
+      event === "request_changes" || event === "acknowledge_drift"
         ? (options.comment ?? null)
         : event === "resubmit"
           ? `Responded to ${responses.length} change request${responses.length === 1 ? "" : "s"}`
@@ -968,6 +1019,66 @@ export async function getRevision(
     reason: row.reason,
     createdAt: row.createdAt.toISOString(),
     snapshot: row.snapshot,
+  };
+}
+
+export type GenerationDiagnostics = {
+  generation: {
+    id: string;
+    model: string;
+    promptVersion: string;
+    createdAt: string;
+    policyClaims: number;
+    policyClaimsVerified: number;
+  };
+  diagnostics: RetrievalDiagnostics;
+};
+
+/**
+ * What retrieval considered when this plan was generated, and why each
+ * section was or was not given to the model. For managers and reviewers: it
+ * names documents of every department.
+ */
+export async function getGenerationDiagnostics(
+  db: Database,
+  planId: string,
+  actor: Principal,
+): Promise<GenerationDiagnostics> {
+  requirePermission(actor, "audit:view");
+
+  const plan = await getPlan(db, planId, actor);
+
+  if (!plan.generationId) {
+    throw new ApiError(
+      404,
+      "no_diagnostics",
+      "This plan was not generated by the AI, so there is no retrieval record.",
+    );
+  }
+
+  const [row] = await db
+    .select()
+    .from(aiGenerations)
+    .where(eq(aiGenerations.id, plan.generationId));
+
+  if (!row?.diagnostics) {
+    throw new ApiError(
+      404,
+      "no_diagnostics",
+      "Retrieval was not recorded for this generation.",
+    );
+  }
+
+  return {
+    generation: {
+      id: row.id,
+      model: row.model,
+      promptVersion: row.promptVersion,
+      createdAt: row.createdAt.toISOString(),
+      policyClaims: row.policyClaims,
+      policyClaimsVerified: row.policyClaimsVerified,
+    },
+    diagnostics: row.diagnostics,
   };
 }
 

@@ -220,6 +220,34 @@ export default function EvalsPage() {
                   />
                 </>
               ) : null}
+              {generation.policy ? (
+                <>
+                  <Metric
+                    label="Called policy requirements"
+                    hint="Recommended actions the model labelled as restating a company rule. Each must come with a quotation."
+                    value={generation.policy.claimShare}
+                  />
+                  <Metric
+                    label="Quotations that held up"
+                    hint="Policy-requirement claims whose quotation the server found word for word in the cited source. The rest are stored as proposals, with the reason."
+                    value={generation.policy.claimsVerified}
+                  />
+                  {generation.policy.supportedVerified ? (
+                    <Metric
+                      label="Verified policy actions judged fully supported"
+                      hint="Actions kept as policy requirements that an LLM judge rated fully supported by their excerpts."
+                      value={generation.policy.supportedVerified}
+                    />
+                  ) : null}
+                  {generation.policy.supportedOther ? (
+                    <Metric
+                      label="Other cited actions judged fully supported"
+                      hint="Every other cited action (proposals and assumptions), judged the same way, for comparison."
+                      value={generation.policy.supportedOther}
+                    />
+                  ) : null}
+                </>
+              ) : null}
               <Metric
                 label="KPIs measurable"
                 hint="KPIs that name a number, a rate or a unit (heuristic)."

@@ -51,6 +51,20 @@ export type EvalReport = {
         supportedOrPartial: Proportion;
         actionsJudged: number;
       };
+      /**
+       * Statement labels (added with prompt v4). Absent from reports published
+       * before the labels existed.
+       */
+      policy?: {
+        /** Actions the model called policy requirements, of all actions. */
+        claimShare: Proportion;
+        /** Claimed policy requirements whose quotation was found in the source. */
+        claimsVerified: Proportion;
+        /** Judge: verified policy actions rated fully supported by their excerpts. */
+        supportedVerified: Proportion | null;
+        /** Judge: every other cited action rated fully supported. */
+        supportedOther: Proportion | null;
+      };
       latencyMs: { mean: number | null; p50: number | null; p95: number | null };
       outputTokensMean: number | null;
       confidence: Record<"Low" | "Medium" | "High", number>;
@@ -195,6 +209,20 @@ export function buildReport({
           }
         }
 
+        const policyJudged = judged.filter((g) => g.judgePolicy);
+        const policySupported = policyJudged.reduce(
+          (t, g) => t + g.judgePolicy!.supported,
+          0,
+        );
+        const policyTotal = policyJudged.reduce(
+          (t, g) =>
+            t +
+            g.judgePolicy!.supported +
+            g.judgePolicy!.partial +
+            g.judgePolicy!.unsupported,
+          0,
+        );
+
         const expectedGrounding = okGenerations.filter(
           (g) => g.groundingAsExpected !== null,
         );
@@ -233,6 +261,22 @@ export function buildReport({
             okGenerations.filter((g) => g.staleFactHits.length > 0).length,
             staleChecked.length,
           ),
+          policy: {
+            claimShare: proportion(
+              sum((g) => g.policyClaims),
+              sum((g) => g.actions),
+            ),
+            claimsVerified: proportion(
+              sum((g) => g.policyClaimsVerified),
+              sum((g) => g.policyClaims),
+            ),
+            supportedVerified:
+              policyTotal === 0 ? null : proportion(policySupported, policyTotal),
+            supportedOther:
+              total - policyTotal === 0
+                ? null
+                : proportion(supported - policySupported, total - policyTotal),
+          },
           faithfulness:
             total === 0
               ? null
@@ -329,6 +373,12 @@ function buildLimitations(
         `Confidence is not yet a discriminating signal: ${confidence.High} of ${total} plans report High. The server caps it when grounding is weak, but among grounded plans the model almost always says High.`,
       );
     }
+  }
+
+  if (meta.mode === "full") {
+    limitations.push(
+      "A verified policy requirement means the quotation was found word for word in the cited excerpt. It proves the source says those words, not that the action correctly applies them; the judge figure beside it is the check on that.",
+    );
   }
 
   if (meta.judgeModel) {

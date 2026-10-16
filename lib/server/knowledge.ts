@@ -1,5 +1,11 @@
 import { and, asc, cosineDistance, desc, eq, inArray, sql } from "drizzle-orm";
-import type { SustainabilityCaseInput, SourceRef } from "@/lib/types";
+import type {
+  RetrievalCandidate,
+  RetrievalDecision,
+  RetrievalDiagnostics,
+  SustainabilityCaseInput,
+  SourceRef,
+} from "@/lib/types";
 import type { ParsedDocument } from "@/lib/knowledge/parse";
 import { schema, type Database } from "./db";
 import type { Embedder } from "./embeddings";
@@ -157,6 +163,8 @@ export type RetrievalResult = {
   sources: SourceRef[];
   /** Chunks that were eligible (approved, in scope) before ranking. */
   eligible: number;
+  /** Every section considered and the decision reached on each. */
+  diagnostics: RetrievalDiagnostics;
 };
 
 export function buildRetrievalQuery(input: SustainabilityCaseInput) {
@@ -169,13 +177,25 @@ export function buildRetrievalQuery(input: SustainabilityCaseInput) {
   ].join(" ");
 }
 
+const DECISION_ORDER: Record<RetrievalDecision, number> = {
+  kept: 0,
+  below_floor: 1,
+  beyond_top_k: 2,
+  excluded_department: 3,
+  excluded_status: 4,
+  excluded_model: 5,
+};
+
 /**
- * Finds the approved sections most relevant to a case.
+ * Finds the approved sections most relevant to a case, and records why every
+ * other section was left out.
  *
  * Eligibility is decided by metadata first (approved status, the case's
  * department or group-wide documents, vectors from this embedding model), and
  * only then ranked by cosine similarity. A similarity floor stops weak
- * matches from being passed off as evidence.
+ * matches from being passed off as evidence. Every section in the knowledge
+ * base is scored and given a decision, so a reviewer can see not only what the
+ * model was shown but what it was not, and why.
  */
 export async function retrieveSources(
   db: Database,
@@ -186,16 +206,8 @@ export async function retrieveSources(
     minScore,
   }: { embedder: Embedder; topK: number; minScore: number },
 ): Promise<RetrievalResult> {
-  const [queryVector] = await embedder.embed([buildRetrievalQuery(input)]);
-  const eligibleFilter = and(
-    eq(knowledgeDocuments.status, "approved"),
-    inArray(knowledgeDocuments.department, [
-      input.department,
-      GROUP_WIDE_DEPARTMENT,
-    ]),
-    eq(knowledgeChunks.embeddingModel, embedder.model),
-  );
-
+  const query = buildRetrievalQuery(input);
+  const [queryVector] = await embedder.embed([query]);
   const similarity = sql<number>`1 - (${cosineDistance(knowledgeChunks.embedding, queryVector)})`;
 
   const rows = await db
@@ -204,46 +216,113 @@ export async function retrieveSources(
       documentId: knowledgeDocuments.id,
       documentTitle: knowledgeDocuments.title,
       documentVersion: knowledgeDocuments.version,
+      documentStatus: knowledgeDocuments.status,
       documentType: knowledgeDocuments.documentType,
       department: knowledgeDocuments.department,
       sectionRef: knowledgeChunks.sectionRef,
       heading: knowledgeChunks.heading,
-      content: knowledgeChunks.content,
+      embeddingModel: knowledgeChunks.embeddingModel,
       score: similarity,
     })
     .from(knowledgeChunks)
     .innerJoin(
       knowledgeDocuments,
       eq(knowledgeDocuments.id, knowledgeChunks.documentId),
-    )
-    .where(eligibleFilter)
-    .orderBy(desc(similarity))
-    .limit(topK);
+    );
 
-  const [{ eligible }] = await db
-    .select({ eligible: sql<number>`count(*)::int` })
-    .from(knowledgeChunks)
-    .innerJoin(
-      knowledgeDocuments,
-      eq(knowledgeDocuments.id, knowledgeChunks.documentId),
-    )
-    .where(eligibleFilter);
+  const inScope = new Set([input.department, GROUP_WIDE_DEPARTMENT]);
+  const round = (value: number) => Math.round(value * 1000) / 1000;
 
-  const sources: SourceRef[] = rows
-    .filter((row) => Number(row.score) >= minScore)
-    .map((row, index) => ({
-      id: `S${index + 1}`,
+  type Row = (typeof rows)[number];
+  const eligible: Row[] = [];
+  const excluded: Array<{ row: Row; decision: RetrievalDecision }> = [];
+
+  for (const row of rows) {
+    if (row.embeddingModel !== embedder.model) {
+      excluded.push({ row, decision: "excluded_model" });
+    } else if (row.documentStatus !== "approved") {
+      excluded.push({ row, decision: "excluded_status" });
+    } else if (!inScope.has(row.department)) {
+      excluded.push({ row, decision: "excluded_department" });
+    } else {
+      eligible.push(row);
+    }
+  }
+
+  eligible.sort((a, b) => Number(b.score) - Number(a.score));
+
+  const decided: Array<{ row: Row; decision: RetrievalDecision }> = [
+    ...eligible.map((row, rank) => ({
+      row,
+      decision: (rank >= topK
+        ? "beyond_top_k"
+        : Number(row.score) >= minScore
+          ? "kept"
+          : "below_floor") as RetrievalDecision,
+    })),
+    ...excluded,
+  ];
+
+  const keptRows = decided
+    .filter((entry) => entry.decision === "kept")
+    .map((entry) => entry.row);
+  const contents = keptRows.length
+    ? await db
+        .select({ id: knowledgeChunks.id, content: knowledgeChunks.content })
+        .from(knowledgeChunks)
+        .where(
+          inArray(
+            knowledgeChunks.id,
+            keptRows.map((row) => row.chunkId),
+          ),
+        )
+    : [];
+  const contentById = new Map(contents.map((row) => [row.id, row.content]));
+
+  const sources: SourceRef[] = keptRows.map((row, index) => ({
+    id: `S${index + 1}`,
+    chunkId: row.chunkId,
+    documentId: row.documentId,
+    documentTitle: row.documentTitle,
+    documentVersion: row.documentVersion,
+    documentType: row.documentType,
+    department: row.department,
+    sectionRef: row.sectionRef,
+    heading: row.heading,
+    excerpt: (contentById.get(row.chunkId) ?? "").slice(0, EXCERPT_LIMIT),
+    score: round(Number(row.score)),
+  }));
+
+  const candidates: RetrievalCandidate[] = decided
+    .map(({ row, decision }) => ({
       chunkId: row.chunkId,
       documentId: row.documentId,
       documentTitle: row.documentTitle,
       documentVersion: row.documentVersion,
-      documentType: row.documentType,
+      documentStatus: row.documentStatus,
       department: row.department,
       sectionRef: row.sectionRef,
       heading: row.heading,
-      excerpt: row.content.slice(0, EXCERPT_LIMIT),
-      score: Math.round(Number(row.score) * 1000) / 1000,
-    }));
+      score:
+        decision === "excluded_model" ? null : round(Number(row.score)),
+      decision,
+    }))
+    .sort(
+      (a, b) =>
+        DECISION_ORDER[a.decision] - DECISION_ORDER[b.decision] ||
+        (b.score ?? -1) - (a.score ?? -1),
+    );
 
-  return { sources, eligible };
+  return {
+    sources,
+    eligible: eligible.length,
+    diagnostics: {
+      query,
+      embeddingModel: embedder.model,
+      topK,
+      minScore,
+      caseDepartment: input.department,
+      candidates,
+    },
+  };
 }

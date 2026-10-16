@@ -75,7 +75,9 @@ test.describe("grounded generation", () => {
     // The retrieved excerpts are frozen into the plan and can be opened.
     await page.getByText(/S1 · Food Waste Measurement/).click();
     await expect(
-      page.getByText(/Weigh waste at the point it is generated/),
+      page
+        .locator("details[open]", { hasText: /S1 · Food Waste Measurement/ })
+        .getByText(/Weigh waste at the point it is generated/),
     ).toBeVisible();
   });
 

@@ -4,6 +4,7 @@ import { and, count, eq, gte } from "drizzle-orm";
 import type {
   AIActionPlan,
   ModelActionPlan,
+  RetrievalDiagnostics,
   SourceRef,
   SustainabilityCaseInput,
 } from "@/lib/types";
@@ -11,6 +12,7 @@ import {
   aiActionPlanSchema,
   modelActionPlanSchema,
 } from "@/lib/schemas/action-plan";
+import { checkQuote, type DowngradeReason } from "@/lib/provenance";
 import { actionPlanJsonSchema } from "@/lib/schemas/openai";
 import {
   PROMPT_VERSION,
@@ -183,20 +185,63 @@ const CONFIDENCE_ORDER = ["Low", "Medium", "High"] as const;
 /**
  * Turns the model's output into the stored plan.
  *
- * The model's citations are untrusted: any id that was not actually
- * retrieved is dropped, and the plan's grounding and confidence are decided
- * here from what survives, never from what the model claims.
+ * The model's citations and claims are untrusted. Any source id that was not
+ * actually retrieved is dropped. An action the model calls a policy
+ * requirement keeps that label only if the quotation it gave appears, word for
+ * word, in the excerpt of a source the action cites; otherwise it is stored as
+ * a plain proposal with the reason. The plan's grounding and confidence are
+ * decided here from what survives, never from what the model claims.
  */
 export function finalizePlan(
   model: ModelActionPlan,
   sources: SourceRef[],
-): { plan: AIActionPlan; citationsDropped: number } {
+): {
+  plan: AIActionPlan;
+  citationsDropped: number;
+  policyClaims: number;
+  policyClaimsVerified: number;
+} {
   const known = new Set(sources.map((source) => source.id));
   let citationsDropped = 0;
+  let policyClaims = 0;
+  let policyClaimsVerified = 0;
 
   const actions = model.recommendedOperationalActions.map((item) => {
     const valid = [...new Set(item.sourceIds)].filter((id) => known.has(id));
     citationsDropped += item.sourceIds.length - valid.length;
+
+    let claimType: "policy_requirement" | "proposal" | "assumption" =
+      item.claimType === "assumption" ? "assumption" : "proposal";
+    let evidence: { sourceId: string; quote: string } | null = null;
+    let downgradeReason: DowngradeReason | null = null;
+
+    if (item.claimType === "policy_requirement") {
+      policyClaims += 1;
+      const offered = item.evidence;
+      const source = offered
+        ? sources.find((candidate) => candidate.id === offered.sourceId)
+        : undefined;
+
+      if (!offered) {
+        downgradeReason = "no_quote";
+      } else if (!source || !valid.includes(offered.sourceId)) {
+        downgradeReason = "source_not_cited";
+      } else {
+        const check = checkQuote(offered.quote, source.excerpt);
+
+        if (check.ok) {
+          policyClaimsVerified += 1;
+          claimType = "policy_requirement";
+          // Keep the source's own wording, not the model's rendering of it.
+          evidence = {
+            sourceId: source.id,
+            quote: source.excerpt.slice(check.start, check.end),
+          };
+        } else {
+          downgradeReason = check.reason;
+        }
+      }
+    }
 
     // New actions get a stable identity here; `origin` is "ai" because this
     // is the model's own output. Tracking starts empty.
@@ -204,6 +249,9 @@ export function finalizePlan(
       id: crypto.randomUUID(),
       action: item.action,
       sourceIds: valid,
+      claimType,
+      evidence,
+      downgradeReason,
       origin: "ai" as const,
       status: "open" as const,
       assigneeId: null,
@@ -239,6 +287,8 @@ export function finalizePlan(
       grounding: { status, retrievedCount: sources.length },
     }),
     citationsDropped,
+    policyClaims,
+    policyClaimsVerified,
   };
 }
 
@@ -330,6 +380,9 @@ export type GenerationResult = {
     attempts: number;
     /** Citations the model produced that were not in the retrieved set. */
     citationsDropped: number;
+    /** Statements the model called policy requirements, and how many held up. */
+    policyClaims: number;
+    policyClaimsVerified: number;
     inputTokens: number | null;
     outputTokens: number | null;
   };
@@ -391,6 +444,7 @@ export async function generateActionPlan({
     // Retrieval failure degrades to an ungrounded plan (clearly labelled)
     // rather than blocking generation outright.
     let sources: SourceRef[] = [];
+    let diagnostics: RetrievalDiagnostics | null = null;
 
     try {
       const embedder = getEmbedder();
@@ -400,6 +454,7 @@ export async function generateActionPlan({
         minScore: env.RETRIEVAL_MIN_SCORE ?? defaultMinScore(embedder),
       });
       sources = retrieved.sources;
+      diagnostics = retrieved.diagnostics;
     } catch (error) {
       console.warn("retrieval failed; continuing ungrounded", {
         requestId,
@@ -409,7 +464,7 @@ export async function generateActionPlan({
 
     const prompt = buildSustainabilityActionPlanPrompt(input, sources);
     let attempt = 0;
-    let result: { plan: AIActionPlan; citationsDropped: number } | null = null;
+    let result: ReturnType<typeof finalizePlan> | null = null;
 
     // Model output is non-deterministic. One retry on unreadable output
     // (bad JSON, truncation, schema mismatch) removes most one-off failures;
@@ -451,7 +506,12 @@ export async function generateActionPlan({
       }
     }
 
-    const { plan: actionPlan, citationsDropped } = result;
+    const {
+      plan: actionPlan,
+      citationsDropped,
+      policyClaims,
+      policyClaimsVerified,
+    } = result;
     const modelCall = usage;
     const latencyMs = Date.now() - startedAt;
 
@@ -463,6 +523,11 @@ export async function generateActionPlan({
         inputTokens: modelCall?.inputTokens ?? null,
         outputTokens: modelCall?.outputTokens ?? null,
         sources,
+        input,
+        output: actionPlan,
+        diagnostics,
+        policyClaims,
+        policyClaimsVerified,
         groundingStatus: actionPlan.grounding.status,
         citationsDropped,
       })
@@ -481,6 +546,8 @@ export async function generateActionPlan({
         grounding: actionPlan.grounding.status,
         sourceCount: sources.length,
         citationsDropped,
+        policyClaims,
+        policyClaimsVerified,
       },
     });
 
@@ -494,6 +561,8 @@ export async function generateActionPlan({
         latencyMs,
         attempts: attempt,
         citationsDropped,
+        policyClaims,
+        policyClaimsVerified,
         inputTokens: modelCall?.inputTokens ?? null,
         outputTokens: modelCall?.outputTokens ?? null,
       },

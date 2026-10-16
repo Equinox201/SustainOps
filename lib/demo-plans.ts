@@ -24,6 +24,8 @@ type SeedFields =
   | "version"
   | "approvedVersion"
   | "originalAiOutput"
+  | "generatedCase"
+  | "driftAcknowledged"
   | "changeRequests"
   | "reviewStatus"
   | "reviewComment"
@@ -338,6 +340,65 @@ export const demoCitations: Record<string, DemoCitation[][]> = {
   ],
 };
 
+/**
+ * What a model would claim about each demo action: a policy requirement with a
+ * quotation, or an assumption. Actions not listed are plain proposals. The
+ * seed runs these through the same quotation check as a real generation, so a
+ * claim that does not hold up is downgraded here too. One deliberately does
+ * not (a paraphrase instead of a quotation) so the demo shows a downgrade.
+ */
+export type DemoClaim = {
+  claim: "policy_requirement" | "assumption";
+  quote?: string;
+};
+
+export const demoClaims: Record<string, (DemoClaim | null)[]> = {
+  "demo-energy-floor-shutdown": [
+    {
+      claim: "policy_requirement",
+      quote:
+        "Front Office assigns rooms by floor where guest preferences allow",
+    },
+    {
+      claim: "policy_requirement",
+      quote:
+        "A daily check-in between Front Office and Engineering confirms eligible floors",
+    },
+    null,
+    null,
+  ],
+  "demo-breakfast-croissant-waste": [
+    {
+      claim: "policy_requirement",
+      quote:
+        "Weigh waste at the point it is generated, by category, and log it per service",
+    },
+    {
+      claim: "policy_requirement",
+      quote: "Replenish buffet lines in small batches on a short cycle",
+    },
+    {
+      claim: "policy_requirement",
+      // A paraphrase, not a quotation: the check rejects it.
+      quote:
+        "Final replenishment is decided at a fixed time before the end of service",
+    },
+    {
+      claim: "policy_requirement",
+      quote: "only within the shelf-life limits set by the food safety plan",
+    },
+  ],
+  "demo-procurement-supplier-screening": [
+    null,
+    {
+      claim: "policy_requirement",
+      quote: "Screening is recorded on a one-page scorecard",
+    },
+    null,
+    { claim: "assumption" },
+  ],
+};
+
 /** Demo plans without grounding; the seed route attaches real sources. */
 export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
   (plan) => {
@@ -348,6 +409,9 @@ export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
           id: stableUuid(`${plan.id}:action:${index}`),
           action,
           sourceIds: [],
+          claimType: "proposal" as const,
+          evidence: null,
+          downgradeReason: null,
           origin: "ai" as const,
           status: "open" as const,
           assigneeId: null,
@@ -362,6 +426,8 @@ export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
       ...plan,
       actionPlan,
       originalAiOutput: actionPlan,
+      generatedCase: plan.sustainabilityCase,
+      driftAcknowledged: false,
       changeRequests: [],
       approvedVersion: null,
       generationId: null,

@@ -70,6 +70,9 @@ export type GenerationCaseResult = {
   actionsCited: number;
   citationsDropped: number;
   citationsKept: number;
+  /** Actions the model called policy requirements, and how many held up. */
+  policyClaims: number;
+  policyClaimsVerified: number;
   /** Percent/temperature figures in the plan not found in input or sources. */
   untraceableFigures: string[];
   figuresChecked: number;
@@ -79,6 +82,8 @@ export type GenerationCaseResult = {
   staleFactHits: string[];
   confidence: "Low" | "Medium" | "High" | null;
   judge?: { supported: number; partial: number; unsupported: number };
+  /** The same judgement, for the actions kept as verified policy requirements. */
+  judgePolicy?: { supported: number; partial: number; unsupported: number };
 };
 
 export type CaseReport = {

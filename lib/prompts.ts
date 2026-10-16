@@ -4,7 +4,7 @@ import type {
 } from "@/lib/schemas/action-plan";
 
 /** Bump whenever the prompt text or output contract changes. */
-export const PROMPT_VERSION = "action-plan-v3-grounded";
+export const PROMPT_VERSION = "action-plan-v4-claims";
 
 export const SUSTAINABILITY_SYSTEM_PROMPT = `
 You are the SustainOps sustainability operations assistant.
@@ -31,7 +31,12 @@ Return only valid JSON matching this exact shape:
   "situationSummary": "string",
   "likelyRootCauses": ["string"],
   "recommendedOperationalActions": [
-    { "action": "string", "sourceIds": ["S1"] }
+    {
+      "action": "string",
+      "sourceIds": ["S1"],
+      "claimType": "policy_requirement | proposal | assumption",
+      "evidence": { "sourceId": "S1", "quote": "string" } or null
+    }
   ],
   "staffMicroTrainingMessage": "string",
   "managerChecklist": ["string"],
@@ -52,6 +57,11 @@ Rules:
 - Use confidenceLevel based on how much operational context was provided and how well the approved sources support the plan.
 - In sourceIds, list only ids of the approved sources below that directly support that action. Use [] when no source supports it. Never use an id that is not listed.
 - Do not state a threshold, target or rule as company policy unless it appears in a listed source.
+- For every action set claimType:
+  - "policy_requirement": the action carries out a rule, threshold or requirement that a listed source states. Then evidence is required: sourceId is a source you cite for this action, and quote is one passage copied exactly, word for word, from that source's text (at least one full clause, never a paraphrase or a summary). Quotations are checked against the source; one that does not match is rejected.
+  - "proposal": a sensible suggestion that sources may support but do not require, or general good practice. evidence is null.
+  - "assumption": the action relies on something about this hotel's operations that the case and sources do not state. evidence is null.
+  When unsure, choose "proposal".
 `.trim();
 
 function formatSources(sources: SourceRef[]) {

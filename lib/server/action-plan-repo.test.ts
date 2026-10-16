@@ -18,6 +18,7 @@ import {
   seedDemoPlans,
 } from "./action-plan-repo";
 import { createTestDb } from "./test-db";
+import { recordGeneration } from "./test-support";
 
 // These match the personas seeded by drizzle/0002_seed_demo_users.sql.
 const MAYA: Principal = {
@@ -54,7 +55,7 @@ function makeContent(overrides: Partial<PlanContent> = {}): PlanContent {
   return {
     sustainabilityCase: demo.sustainabilityCase,
     actionPlan: demo.actionPlan,
-    generationId: null,
+    generationId,
     owner: "Jordan Lee",
     priority: "High",
     targetDate: "2026-12-01",
@@ -104,6 +105,9 @@ async function expectApiError(
 }
 
 let db: Database;
+// A recorded generation of the Engineering demo plan: plans built from
+// makeContent() come from it, so they carry AI provenance like real ones.
+let generationId: string;
 
 /** The plan's current version, as a client that just loaded it would send. */
 async function currentVersion(id: string) {
@@ -154,6 +158,7 @@ beforeEach(async () => {
   await db.execute(
     sql`truncate action_plans, audit_events, ai_generations cascade`,
   );
+  generationId = await recordGeneration(db);
 });
 
 describe("plan lifecycle", () => {
@@ -687,7 +692,7 @@ describe("demo reset", () => {
 
     // Rate limiting depends on these surviving the reset.
     const generations = await db.select().from(schema.aiGenerations);
-    expect(generations).toHaveLength(1);
+    expect(generations).toHaveLength(2); // the fixture's plus the one inserted above
   });
 
   it("records scheduled resets without a user", async () => {

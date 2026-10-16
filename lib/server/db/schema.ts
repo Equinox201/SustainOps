@@ -18,7 +18,11 @@ import type {
   KPIProgress,
   ReadinessChecklist,
 } from "@/lib/schemas/action-plan";
-import type { RevisionSnapshot } from "@/lib/types";
+import type {
+  RetrievalDiagnostics,
+  RevisionSnapshot,
+  SustainabilityCaseInput,
+} from "@/lib/types";
 
 /**
  * All tables have Row Level Security enabled with no policies: they are not
@@ -70,6 +74,19 @@ export const aiGenerations = pgTable(
     outputTokens: integer("output_tokens"),
     // What the plan was grounded on, as retrieved for this generation.
     sources: jsonb("sources").$type<unknown[]>(),
+    // The case the model was given, and the finished plan the server kept.
+    // A plan saved from this generation must equal `output`, which is how
+    // the server knows what is the AI's and what is a person's.
+    input: jsonb("input").$type<SustainabilityCaseInput>(),
+    output: jsonb("output").$type<AIActionPlan>(),
+    // Every section retrieval considered, with the decision it reached.
+    diagnostics: jsonb("diagnostics").$type<RetrievalDiagnostics>(),
+    // Statements the model called policy requirements, and how many survived
+    // the server's quotation check.
+    policyClaims: integer("policy_claims").notNull().default(0),
+    policyClaimsVerified: integer("policy_claims_verified")
+      .notNull()
+      .default(0),
     groundingStatus: text("grounding_status"),
     citationsDropped: integer("citations_dropped").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -122,6 +139,9 @@ export const actionPlans = pgTable(
     originalAiOutput: jsonb("original_ai_output").$type<AIActionPlan>(),
     // The version in which the current approval took effect.
     approvedVersion: integer("approved_version"),
+    // The case as the AI saw it: the plan is stale if the case has changed.
+    generatedCase: jsonb("generated_case").$type<SustainabilityCaseInput>(),
+    driftAcknowledged: boolean("drift_acknowledged").notNull().default(false),
     approved: boolean("approved").notNull().default(false),
     completed: boolean("completed").notNull().default(false),
     // Optimistic concurrency token: bumped on every successful write.

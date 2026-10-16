@@ -8,6 +8,7 @@ import { schema } from "./db";
 import { ApiError } from "./api";
 import * as repository from "./action-plan-repo";
 import { createTestDb } from "./test-db";
+import { recordGeneration } from "./test-support";
 
 // Personas seeded by drizzle/0002_seed_demo_users.sql.
 const MAYA: Principal = {
@@ -43,7 +44,7 @@ function makeContent(overrides: Partial<PlanContent> = {}): PlanContent {
   return {
     sustainabilityCase: demo.sustainabilityCase,
     actionPlan: demo.actionPlan,
-    generationId: null,
+    generationId,
     owner: "Jordan Lee",
     priority: "High",
     targetDate: "2026-12-01",
@@ -100,6 +101,9 @@ async function expectApiError(
 }
 
 let db: Database;
+// A recorded generation of the Engineering demo plan: plans built from
+// makeContent() come from it, so they carry AI provenance like real ones.
+let generationId: string;
 
 async function version(id: string) {
   const [row] = await db
@@ -140,6 +144,7 @@ beforeEach(async () => {
   await db.execute(
     sql`truncate action_plans, audit_events, ai_generations cascade`,
   );
+  generationId = await recordGeneration(db);
 });
 
 describe("revisions", () => {
@@ -280,30 +285,32 @@ describe("actions", () => {
 
   it("moves the baseline only when the AI produces a new plan", async () => {
     const plan = await repository.createPlan(db, makeContent(), as(MAYA));
-    const [generation] = await db
-      .insert(schema.aiGenerations)
-      .values({
-        requestId: "r1",
-        clientKey: "k1",
-        model: "test",
-        promptVersion: "test",
-        status: "succeeded",
-      })
-      .returning();
+    const regeneratedOutput = {
+      ...demoActionPlans[0].actionPlan!,
+      recommendedOperationalActions:
+        demoActionPlans[0].actionPlan!.recommendedOperationalActions.map(
+          (item) => ({
+            ...item,
+            id: crypto.randomUUID(),
+            action: `New: ${item.action}`,
+          }),
+        ),
+    };
+    const newGeneration = await recordGeneration(db, {
+      output: regeneratedOutput,
+    });
 
     const regenerated = await update(
       plan.id,
-      withActions(makeContent({ generationId: generation.id }), (items) =>
-        items.map((item) => ({
-          ...item,
-          id: crypto.randomUUID(),
-          action: `New: ${item.action}`,
-        })),
-      ),
+      makeContent({
+        generationId: newGeneration,
+        actionPlan: regeneratedOutput,
+      }),
       MAYA,
     );
 
-    expect(regenerated.originalAiOutput).toEqual(regenerated.actionPlan);
+    expect(regenerated.originalAiOutput).toEqual(regeneratedOutput);
+    expect(regenerated.actionPlan).toEqual(regeneratedOutput);
     expect(
       regenerated.actionPlan!.recommendedOperationalActions.every(
         (item) => item.origin === "ai",
@@ -311,7 +318,7 @@ describe("actions", () => {
     ).toBe(true);
   });
 
-  it("rejects duplicate ids, unknown sources and a blocked action with no reason", async () => {
+  it("rejects duplicate ids and a blocked action with no reason", async () => {
     const plan = await repository.createPlan(db, makeContent(), as(MAYA));
 
     await expectApiError(
@@ -321,15 +328,6 @@ describe("actions", () => {
         MAYA,
       ),
       "invalid_actions",
-      422,
-    );
-    await expectApiError(
-      update(
-        plan.id,
-        editAction(makeContent(), 0, { sourceIds: ["S9"] }),
-        MAYA,
-      ),
-      "unknown_source",
       422,
     );
     await expectApiError(
