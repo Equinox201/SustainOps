@@ -146,7 +146,11 @@ function parseModelOutput(call: ModelCall): ModelActionPlan {
       "The AI response could not be read. Please try again.",
       undefined,
       undefined,
-      { reason: "invalid_json", length: text.length, outputTokens: call.outputTokens },
+      {
+        reason: "invalid_json",
+        length: text.length,
+        outputTokens: call.outputTokens,
+      },
     );
   }
 
@@ -194,7 +198,18 @@ export function finalizePlan(
     const valid = [...new Set(item.sourceIds)].filter((id) => known.has(id));
     citationsDropped += item.sourceIds.length - valid.length;
 
-    return { action: item.action, sourceIds: valid };
+    // New actions get a stable identity here; `origin` is "ai" because this
+    // is the model's own output. Tracking starts empty.
+    return {
+      id: crypto.randomUUID(),
+      action: item.action,
+      sourceIds: valid,
+      origin: "ai" as const,
+      status: "open" as const,
+      assigneeId: null,
+      dueDate: "",
+      blockedReason: "",
+    };
   });
 
   const cited = actions.filter((item) => item.sourceIds.length > 0).length;

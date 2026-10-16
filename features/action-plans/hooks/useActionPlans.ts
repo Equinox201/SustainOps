@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { PlanContent } from "@/lib/schemas/action-plan";
+import type { ChangeResponse, PlanContent } from "@/lib/schemas/action-plan";
 import type { StoredActionPlan } from "@/lib/types";
 import type { LifecycleEvent } from "../domain/lifecycle";
 import * as api from "../services/action-plan-api";
@@ -90,6 +90,7 @@ export function useActionPlans() {
         expectedVersion: number;
         content?: PlanContent;
         comment?: string;
+        responses?: ChangeResponse[];
       },
     ) => {
       const result = await api.transitionPlan(id, event, options);

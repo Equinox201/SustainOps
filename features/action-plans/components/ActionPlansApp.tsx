@@ -255,6 +255,7 @@ function Workspace({
             onComplete={editor.complete}
             onResetApproval={editor.resetApproval}
             onRequestChanges={editor.requestChanges}
+            onResubmit={editor.resubmit}
           />
         ) : (
           <>

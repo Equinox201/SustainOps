@@ -22,6 +22,9 @@ const defaultGovernanceReview: StoredActionPlan["governanceReview"] = {
 type SeedFields =
   | "generationId"
   | "version"
+  | "approvedVersion"
+  | "originalAiOutput"
+  | "changeRequests"
   | "reviewStatus"
   | "reviewComment"
   | "createdBy"
@@ -33,6 +36,37 @@ type RawAiPlan = Omit<
   "recommendedOperationalActions" | "sources" | "grounding"
 > & { recommendedOperationalActions: string[] };
 
+/**
+ * A deterministic, valid UUID derived from a string, so re-seeding the demo
+ * produces the same action ids (and so stays idempotent).
+ */
+export function stableUuid(seed: string): string {
+  let h1 = 0xdeadbeef ^ seed.length;
+  let h2 = 0x41c6ce57 ^ seed.length;
+  let h3 = 0x9e3779b9;
+  let h4 = 0x85ebca6b;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    const code = seed.charCodeAt(index);
+    h1 = Math.imul(h1 ^ code, 2654435761);
+    h2 = Math.imul(h2 ^ code, 1597334677);
+    h3 = Math.imul(h3 ^ code, 2246822507);
+    h4 = Math.imul(h4 ^ code, 3266489909);
+  }
+
+  const hex = [h1, h2, h3, h4]
+    .map((value) => (value >>> 0).toString(16).padStart(8, "0"))
+    .join("");
+
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `4${hex.slice(13, 16)}`,
+    `${"89ab"[parseInt(hex[16], 16) % 4]}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join("-");
+}
+
 type RawDemoPlan = Omit<StoredActionPlan, SeedFields | "actionPlan"> & {
   actionPlan: RawAiPlan;
 };
@@ -40,8 +74,7 @@ type RawDemoPlan = Omit<StoredActionPlan, SeedFields | "actionPlan"> & {
 const rawDemoActionPlans: RawDemoPlan[] = [
   {
     id: "demo-energy-floor-shutdown",
-    title:
-      "Front Office & Engineering — Low-occupancy floor energy reduction",
+    title: "Front Office & Engineering — Low-occupancy floor energy reduction",
     sustainabilityCase: {
       property: "Harbour House Singapore",
       department: "Engineering",
@@ -98,7 +131,6 @@ const rawDemoActionPlans: RawDemoPlan[] = [
       humanReviewRequired: true,
     },
     governanceReview: defaultGovernanceReview,
-    actionNotes: "",
     owner: "Engineering Manager",
     priority: "High",
     targetDate: "2026-07-07",
@@ -175,7 +207,6 @@ const rawDemoActionPlans: RawDemoPlan[] = [
       humanReviewRequired: true,
     },
     governanceReview: defaultGovernanceReview,
-    actionNotes: "",
     owner: "F&B Manager",
     priority: "Medium",
     targetDate: "2026-07-07",
@@ -252,7 +283,6 @@ const rawDemoActionPlans: RawDemoPlan[] = [
       humanReviewRequired: true,
     },
     governanceReview: defaultGovernanceReview,
-    actionNotes: "",
     owner: "Procurement Lead",
     priority: "Medium",
     targetDate: "2026-08-06",
@@ -263,7 +293,8 @@ const rawDemoActionPlans: RawDemoPlan[] = [
         "No consistent sustainability screening step for recurring supplier selection",
       current:
         "Supplier comparison is mostly price, quality, and availability based",
-      target: "Sustainability screening used for priority purchasing categories",
+      target:
+        "Sustainability screening used for priority purchasing categories",
       latestUpdate: "",
     },
     approved: false,
@@ -309,24 +340,37 @@ export const demoCitations: Record<string, DemoCitation[][]> = {
 
 /** Demo plans without grounding; the seed route attaches real sources. */
 export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
-  (plan) => ({
-    ...plan,
-    actionPlan: {
+  (plan) => {
+    const actionPlan: AIActionPlan = {
       ...plan.actionPlan,
       recommendedOperationalActions:
-        plan.actionPlan.recommendedOperationalActions.map((action) => ({
+        plan.actionPlan.recommendedOperationalActions.map((action, index) => ({
+          id: stableUuid(`${plan.id}:action:${index}`),
           action,
           sourceIds: [],
+          origin: "ai" as const,
+          status: "open" as const,
+          assigneeId: null,
+          dueDate: "",
+          blockedReason: "",
         })),
       sources: [],
       grounding: { status: "ungrounded", retrievedCount: 0 },
-    },
-    generationId: null,
-    version: 1,
-    reviewStatus: "none",
-    reviewComment: null,
-    createdBy: null,
-    approvedBy: null,
-    approvedAt: null,
-  }),
+    };
+
+    return {
+      ...plan,
+      actionPlan,
+      originalAiOutput: actionPlan,
+      changeRequests: [],
+      approvedVersion: null,
+      generationId: null,
+      version: 1,
+      reviewStatus: "none",
+      reviewComment: null,
+      createdBy: null,
+      approvedBy: null,
+      approvedAt: null,
+    };
+  },
 );

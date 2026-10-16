@@ -15,17 +15,35 @@ export function getEditorCapabilities(user: Principal, draft: EditorDraft) {
 
   const canEditCore = can(user, "plan:edit", scope) && !draft.approved;
   const canEditKpi = can(user, "plan:kpi", scope) && !draft.completed;
-  const canEditNotes = can(user, "plan:notes", scope) && draft.approved;
+  // Progress and blockers on actions: open to the people doing the work, and
+  // still possible once approved.
+  const canTrack = can(user, "plan:track", scope) && !draft.completed;
+  // Notes are separate, append-only rows (not part of the draft), added once
+  // a plan is approved and implementation starts.
+  const canAddNotes = can(user, "plan:notes", scope) && draft.approved;
+  // What actions say, who does them and when: only after the first save, so
+  // the AI's output is recorded before anyone edits it.
+  const canEditActions = canEditCore && isSaved && hasPlan;
+  const hasOpenRequest = draft.reviewStatus === "changes_requested";
 
   return {
     canEditCore,
     canEditKpi,
-    canEditNotes,
+    canTrack,
+    canAddNotes,
+    canEditActions,
     canGenerate: can(user, "plan:generate") && !draft.approved,
-    canSave: hasPlan && (canEditCore || canEditKpi || canEditNotes),
-    canApprove: can(user, "plan:approve", scope) && hasPlan && isSaved && open,
+    canSave: hasPlan && (canEditCore || canEditKpi || canTrack),
+    canApprove:
+      can(user, "plan:approve", scope) &&
+      hasPlan &&
+      isSaved &&
+      open &&
+      !hasOpenRequest,
     canRequestChanges:
       can(user, "plan:request_changes", scope) && hasPlan && isSaved && open,
+    canResubmit:
+      can(user, "plan:resubmit", scope) && isSaved && open && hasOpenRequest,
     canComplete:
       can(user, "plan:complete", scope) && draft.approved && !draft.completed,
     canResetApproval:

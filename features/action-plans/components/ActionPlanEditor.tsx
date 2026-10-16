@@ -1,5 +1,6 @@
-import type { SessionUser } from "@/lib/schemas/action-plan";
+import type { ChangeResponse, SessionUser } from "@/lib/schemas/action-plan";
 import { getEditorCapabilities } from "../domain/capabilities";
+import { usePeople } from "../hooks/usePeople";
 import { usePlanHistory } from "../hooks/usePlanHistory";
 import type { EditorDraft, EditorPanel } from "../types";
 import { AccountabilityFields } from "./AccountabilityFields";
@@ -8,9 +9,10 @@ import { EditorSection } from "./EditorSection";
 import { EditorSummary } from "./EditorSummary";
 import { EditorToolbar } from "./EditorToolbar";
 import { GeneratedPlan } from "./GeneratedPlan";
-import { ImplementationNotes } from "./ImplementationNotes";
 import { KpiPanel } from "./KpiPanel";
 import { PlanHistory } from "./PlanHistory";
+import { PlanNotes } from "./PlanNotes";
+import { PlanRevisions } from "./PlanRevisions";
 import { ReadinessChecklist } from "./ReadinessChecklist";
 import { primaryButtonClassName } from "./form-styles";
 
@@ -33,6 +35,7 @@ type ActionPlanEditorProps = {
   onComplete: () => void;
   onResetApproval: () => void;
   onRequestChanges: (comment: string) => void;
+  onResubmit: (responses: ChangeResponse[]) => void;
 };
 
 export function ActionPlanEditor({
@@ -54,9 +57,11 @@ export function ActionPlanEditor({
   onComplete,
   onResetApproval,
   onRequestChanges,
+  onResubmit,
 }: ActionPlanEditorProps) {
   const capabilities = getEditorCapabilities(user, draft);
   const history = usePlanHistory(draft.id, draft.updatedAt);
+  const people = usePeople();
   const isApprovedLocked = draft.approved;
   const caseReadOnly = !capabilities.canEditCore;
 
@@ -88,6 +93,7 @@ export function ActionPlanEditor({
         onGenerate={onGenerate}
         onReloadLatest={onReloadLatest}
         onRequestChanges={onRequestChanges}
+        onResubmit={onResubmit}
       />
 
       <div className="space-y-4">
@@ -164,9 +170,25 @@ export function ActionPlanEditor({
                   </button>
                 </div>
               ) : null}
+              {!draft.id ? (
+                <p className="mb-4 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-600">
+                  Save the plan to start editing, assigning and tracking its
+                  actions. The AI&apos;s output is recorded first, so every
+                  later change is measured against it.
+                </p>
+              ) : null}
               <GeneratedPlan
                 actionPlan={draft.actionPlan}
                 governanceReview={draft.governanceReview}
+                actionEditing={{
+                  original: draft.originalAiOutput,
+                  department: draft.sustainabilityCase.department,
+                  people,
+                  canEdit: capabilities.canEditActions,
+                  canTrack: capabilities.canTrack,
+                  onChange: (actionPlan) =>
+                    onDraftChange({ ...draft, actionPlan }),
+                }}
               />
             </>
           ) : null}
@@ -199,11 +221,7 @@ export function ActionPlanEditor({
           lockedMessage="Approve this action plan to unlock implementation notes."
           onToggle={() => togglePanel("notes", "plan")}
         >
-          <ImplementationNotes
-            draft={draft}
-            disabled={!capabilities.canEditNotes}
-            onDraftChange={onDraftChange}
-          />
+          <PlanNotes planId={draft.id} canAdd={capabilities.canAddNotes} />
         </EditorSection>
 
         <EditorSection
@@ -215,6 +233,18 @@ export function ActionPlanEditor({
           lockedMessage="Save the plan to start its history."
           onToggle={() => togglePanel("history", "plan")}
         >
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.13em] text-stone-700">
+            Versions
+          </h3>
+          <PlanRevisions
+            planId={draft.id}
+            version={draft.version}
+            approvedVersion={draft.approvedVersion}
+            people={people}
+          />
+          <h3 className="mb-3 mt-8 text-sm font-semibold uppercase tracking-[0.13em] text-stone-700">
+            Activity
+          </h3>
           <PlanHistory events={history.events} error={history.error} />
         </EditorSection>
       </div>

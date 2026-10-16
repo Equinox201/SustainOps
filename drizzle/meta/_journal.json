@@ -43,6 +43,13 @@
       "when": 1792055427377,
       "tag": "0005_plan_version",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792060878397,
+      "tag": "0006_plan_actions_revisions_requests_notes",
+      "breakpoints": true
     }
   ]
 }

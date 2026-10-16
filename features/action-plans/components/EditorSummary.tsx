@@ -1,3 +1,4 @@
+import type { ChangeResponse } from "@/lib/schemas/action-plan";
 import type { EditorCapabilities } from "../domain/capabilities";
 import { getPlanTitle } from "../domain/plan-utils";
 import type { EditorDraft } from "../types";
@@ -17,6 +18,7 @@ export function EditorSummary({
   onGenerate,
   onReloadLatest,
   onRequestChanges,
+  onResubmit,
 }: {
   draft: EditorDraft;
   capabilities: EditorCapabilities;
@@ -28,6 +30,7 @@ export function EditorSummary({
   onGenerate: () => void;
   onReloadLatest: () => void;
   onRequestChanges: (comment: string) => void;
+  onResubmit: (responses: ChangeResponse[]) => void;
 }) {
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-sm sm:p-7">
@@ -79,8 +82,10 @@ export function EditorSummary({
       <ReviewPanel
         draft={draft}
         canRequestChanges={capabilities.canRequestChanges}
+        canResubmit={capabilities.canResubmit}
         isSaving={isSaving}
         onRequestChanges={onRequestChanges}
+        onResubmit={onResubmit}
       />
 
       {capabilities.canGenerate ? (

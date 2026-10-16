@@ -146,11 +146,23 @@ describe("grounded generation", () => {
   it("drops citations to sources it was never given", async () => {
     const result = await run(reply(modelOutput([["S1", "S99"], ["S42"], ["S1"]])));
 
-    expect(result.actionPlan.recommendedOperationalActions).toEqual([
+    expect(
+      result.actionPlan.recommendedOperationalActions.map(
+        ({ action, sourceIds }) => ({ action, sourceIds }),
+      ),
+    ).toEqual([
       { action: "Action 1", sourceIds: ["S1"] },
       { action: "Action 2", sourceIds: [] },
       { action: "Action 3", sourceIds: ["S1"] },
     ]);
+    // Every proposal arrives with its own identity and an untouched tracker.
+    const ids = result.actionPlan.recommendedOperationalActions.map((a) => a.id);
+    expect(new Set(ids).size).toBe(3);
+    expect(result.actionPlan.recommendedOperationalActions[0]).toMatchObject({
+      origin: "ai",
+      status: "open",
+      assigneeId: null,
+    });
     expect(result.actionPlan.grounding.status).toBe("partial");
 
     const [row] = await db.select().from(schema.aiGenerations);

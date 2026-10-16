@@ -133,7 +133,9 @@ const env = {
   ...process.env,
   NODE_ENV: "production",
   DATABASE_URL: `postgresql://postgres:postgres@127.0.0.1:${DB_PORT}/postgres`,
-  DATABASE_POOL_MAX: "2",
+  // One connection, as in production: the in-memory test database cannot
+  // interleave prepared statements from several connections safely.
+  DATABASE_POOL_MAX: "1",
   OPENAI_API_KEY: "e2e-test-key",
   OPENAI_BASE_URL: `http://127.0.0.1:${AI_PORT}/v1`,
   OPENAI_MODEL: "e2e-fake",
