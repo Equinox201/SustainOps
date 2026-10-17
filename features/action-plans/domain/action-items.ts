@@ -1,7 +1,9 @@
 import type {
   AIActionPlan,
   ActionStatus,
+  CaseDrift,
   StoredAction,
+  SustainabilityCaseInput,
 } from "@/lib/schemas/action-plan";
 import type { Role } from "./permissions";
 
@@ -20,7 +22,6 @@ export const ACTION_STATUS_LABELS: Record<ActionStatus, string> = {
 export type ActionItemError =
   | "blank_action"
   | "invalid_actions"
-  | "unknown_source"
   | "blocked_reason_required";
 
 /** A person who could be given an action: a role plus, for department managers, a department. */
@@ -85,41 +86,31 @@ export function trackingView(actionPlan: AIActionPlan | null) {
 }
 
 /**
- * Validates the shape-level invariants of a plan's actions and decides each
- * action's origin.
+ * Validates an edited plan's actions and decides the fields the client may
+ * not set.
  *
- * Origin is the server's call, never the client's:
- * - an action that already existed keeps the origin it had;
- * - a new action in an existing plan is `human`;
- * - when the plan's content comes from a fresh generation (a new plan, or a
- *   regeneration) everything in it is `ai`.
- *
- * Until generation output is stored server-side and compared (planned with
- * provenance), "fresh generation" is established by the generation id
- * changing, which is the strongest signal available here.
+ * A person may change what an action says, who does it, when, and its
+ * progress. Everything about *provenance* belongs to the server: an existing
+ * action keeps the origin, sources, claim and evidence it had; a new action is
+ * `human`, cites nothing and is a plain proposal. If a person rewords an
+ * action the AI had classified as a policy requirement, the quotation no
+ * longer vouches for the new words, so it drops to a proposal.
  */
 export function normalizeActions(
   actionPlan: AIActionPlan,
-  existing: AIActionPlan | null,
-  { regenerated }: { regenerated: boolean },
+  existing: AIActionPlan,
 ):
   | { ok: true; actionPlan: AIActionPlan }
   | { ok: false; error: ActionItemError } {
   const actions = actionPlan.recommendedOperationalActions;
-  const ids = new Set(actions.map((item) => item.id));
 
-  if (ids.size !== actions.length) {
+  if (new Set(actions.map((item) => item.id)).size !== actions.length) {
     return { ok: false, error: "invalid_actions" };
   }
 
-  const knownSources = new Set(actionPlan.sources.map((source) => source.id));
   const previous = new Map(
-    (existing?.recommendedOperationalActions ?? []).map((item) => [
-      item.id,
-      item,
-    ]),
+    existing.recommendedOperationalActions.map((item) => [item.id, item]),
   );
-
   const normalized: StoredAction[] = [];
 
   for (const item of actions) {
@@ -127,23 +118,43 @@ export function normalizeActions(
       return { ok: false, error: "blank_action" };
     }
 
-    if (item.sourceIds.some((id) => !knownSources.has(id))) {
-      return { ok: false, error: "unknown_source" };
-    }
-
     if (item.status === "blocked" && item.blockedReason.trim() === "") {
       return { ok: false, error: "blocked_reason_required" };
     }
 
-    const origin = regenerated
-      ? "ai"
-      : (previous.get(item.id)?.origin ?? "human");
-
-    normalized.push({
-      ...item,
-      origin,
+    const prior = previous.get(item.id);
+    const tracking = {
+      id: item.id,
+      action: item.action,
+      assigneeId: item.assigneeId,
+      dueDate: item.dueDate,
+      status: item.status,
       // A reason only means something while the action is blocked.
       blockedReason: item.status === "blocked" ? item.blockedReason.trim() : "",
+    };
+
+    if (!prior) {
+      normalized.push({
+        ...tracking,
+        origin: "human",
+        sourceIds: [],
+        claimType: "proposal",
+        evidence: null,
+        downgradeReason: null,
+      });
+      continue;
+    }
+
+    const reworded =
+      prior.action !== item.action && prior.claimType === "policy_requirement";
+
+    normalized.push({
+      ...tracking,
+      origin: prior.origin,
+      sourceIds: prior.sourceIds,
+      claimType: reworded ? "proposal" : prior.claimType,
+      evidence: reworded ? null : prior.evidence,
+      downgradeReason: reworded ? "text_edited" : prior.downgradeReason,
     });
   }
 
@@ -151,6 +162,77 @@ export function normalizeActions(
     ok: true,
     actionPlan: { ...actionPlan, recommendedOperationalActions: normalized },
   };
+}
+
+/**
+ * A plan that did not come from a recorded generation has no AI provenance to
+ * vouch for: every action is the author's own, cites nothing, and the
+ * retrieval record is empty. (Plans in the product always come from a
+ * generation; this keeps the API from being a way to launder claims.)
+ */
+export function asHumanAuthored(actionPlan: AIActionPlan): AIActionPlan {
+  return {
+    ...actionPlan,
+    recommendedOperationalActions: actionPlan.recommendedOperationalActions.map(
+      (item) => ({
+        ...item,
+        origin: "human" as const,
+        sourceIds: [],
+        claimType: "proposal" as const,
+        evidence: null,
+        downgradeReason: null,
+      }),
+    ),
+    sources: [],
+    grounding: { status: "ungrounded", retrievedCount: 0 },
+  };
+}
+
+/** The generated text that people may not edit: everything but the actions. */
+export function generatedText(actionPlan: AIActionPlan) {
+  return { ...actionPlan, recommendedOperationalActions: undefined };
+}
+
+const CASE_FIELD_LABELS: Record<keyof SustainabilityCaseInput, string> = {
+  property: "Property",
+  department: "Department",
+  issue: "Sustainability issue",
+  currentMetric: "Current metric",
+  targetMetric: "Target metric",
+  operationalContext: "Operational context",
+};
+
+/** Which parts of the case differ from the case the AI generated from. */
+export function changedCaseFields(
+  generated: SustainabilityCaseInput | null,
+  current: SustainabilityCaseInput,
+): string[] {
+  if (!generated) {
+    return [];
+  }
+
+  return (
+    Object.keys(CASE_FIELD_LABELS) as (keyof SustainabilityCaseInput)[]
+  )
+    .filter((key) => generated[key] !== current[key])
+    .map((key) => CASE_FIELD_LABELS[key]);
+}
+
+/**
+ * Has the case been edited since the AI generated this plan? A plan whose case
+ * changed describes a situation that no longer exists, so approval waits for
+ * a regeneration or a person's explicit acknowledgement.
+ */
+export function getCaseDrift(plan: {
+  sustainabilityCase: SustainabilityCaseInput;
+  generatedCase: SustainabilityCaseInput | null;
+  driftAcknowledged: boolean;
+}): CaseDrift {
+  if (changedCaseFields(plan.generatedCase, plan.sustainabilityCase).length === 0) {
+    return "none";
+  }
+
+  return plan.driftAcknowledged ? "acknowledged" : "drifted";
 }
 
 export type ActionChange =

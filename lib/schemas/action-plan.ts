@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  CLAIM_TYPES,
+  DOWNGRADE_REASONS,
+  STORED_CLAIM_TYPES,
+} from "@/lib/provenance";
 
 /**
  * Single source of truth for action-plan data shapes.
@@ -22,6 +27,8 @@ export const LIMITS = {
   actionItems: 12,
   blockedReason: 300,
   note: 1000,
+  quote: 400,
+  driftReason: 300,
   changeResponse: 500,
 } as const;
 
@@ -56,11 +63,23 @@ const aiList = z
 /** Short alias the model uses to cite a retrieved source, e.g. "S1". */
 export const sourceIdSchema = z.string().regex(/^S\d{1,2}$/);
 
-/** What the model proposes: text and the sources it cites, nothing else. */
+/** A quotation the model offers as proof that a source says something. */
+export const evidenceSchema = z.strictObject({
+  sourceId: sourceIdSchema,
+  quote: requiredText(LIMITS.quote),
+});
+
+/**
+ * What the model proposes for one action: the text, the sources it cites, and
+ * a *claim* about what kind of statement it is. A claim of "policy_requirement"
+ * must come with a quotation; the server checks it before believing it.
+ */
 export const recommendedActionSchema = z.strictObject({
   action: requiredText(LIMITS.aiItem),
   // Only ids of sources supplied in the prompt are valid; the server checks.
   sourceIds: z.array(sourceIdSchema).max(4),
+  claimType: z.enum(CLAIM_TYPES),
+  evidence: evidenceSchema.nullable(),
 });
 
 /**
@@ -68,14 +87,20 @@ export const recommendedActionSchema = z.strictObject({
  * `origin` is decided by the server (see `normalizeActions`), never trusted
  * from the client.
  */
-export const storedActionSchema = recommendedActionSchema.extend({
+export const storedActionSchema = recommendedActionSchema
+  .omit({ claimType: true })
+  .extend({
+  // The label the server stands behind, not the one the model claimed.
+  claimType: z.enum(STORED_CLAIM_TYPES),
+  // Present only when claimType is "policy_requirement", and verified.
+  downgradeReason: z.enum(DOWNGRADE_REASONS).nullable(),
   id: z.uuid(),
   origin: z.enum(ACTION_ORIGINS),
   status: z.enum(ACTION_STATUSES),
   assigneeId: z.string().min(1).max(100).nullable(),
   dueDate: isoDate,
   blockedReason: optionalText(LIMITS.blockedReason),
-});
+  });
 
 /** What the model must return. Kept strict; human review is always required. */
 export const modelActionPlanSchema = z.strictObject({
@@ -204,6 +229,7 @@ export const transitionRequestSchema = z.strictObject({
     "approve",
     "request_changes",
     "resubmit",
+    "acknowledge_drift",
     "complete",
     "reset_approval",
   ]),
@@ -242,6 +268,8 @@ export type StoredAction = z.infer<typeof storedActionSchema>;
 export type ActionStatus = (typeof ACTION_STATUSES)[number];
 export type ActionOrigin = (typeof ACTION_ORIGINS)[number];
 export type ChangeRequest = z.infer<typeof changeRequestSchema>;
+export type Evidence = z.infer<typeof evidenceSchema>;
+export type CaseDrift = "none" | "drifted" | "acknowledged";
 export type ChangeResponse = z.infer<typeof changeResponseSchema>;
 export type PlanContent = z.infer<typeof planContentSchema>;
 export type Priority = (typeof PRIORITIES)[number];
@@ -259,6 +287,14 @@ export const storedActionPlanSchema = planContentSchema.extend({
   /** The AI's output as first saved (or last regenerated). Never edited. */
   originalAiOutput: aiActionPlanSchema.nullable(),
   changeRequests: z.array(changeRequestSchema),
+  /**
+   * The case exactly as the AI saw it. Comparing it with the plan's current
+   * case shows whether the plan has gone stale; null for plans that were not
+   * generated (nothing to drift from).
+   */
+  generatedCase: sustainabilityCaseSchema.nullable(),
+  /** A person accepted the plan despite the case changing since generation. */
+  driftAcknowledged: z.boolean(),
   approved: z.boolean(),
   completed: z.boolean(),
   reviewStatus: z.enum(["none", "changes_requested"]),

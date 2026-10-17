@@ -68,6 +68,20 @@ generated, was labelled as expected, and contains no forbidden text or stale
 figure. Informational metrics (untraceable figures, judged faithfulness, KPI
 measurability) do not fail a case, but are reported.
 
+**Statement labels (prompt v4)**
+
+| Metric | Definition |
+| --- | --- |
+| Called policy requirements | Actions the model labelled as restating a company rule, of all actions. Each must come with a quotation |
+| Quotations that held up | Policy claims whose quotation the server found word for word in a source the action cites. The rest are stored as proposals. Measures how often the model's claim to be quoting is true |
+| Verified policy actions judged fully supported | The LLM judge's verdict on the actions kept as policy requirements |
+| Other cited actions judged fully supported | The same verdict for every other cited action, as the comparison |
+
+The quotation check is deterministic and proves the source contains those
+words. It cannot prove the action applies them correctly, which is why the
+judged comparison sits beside it: if verified policy actions are not judged
+supported more often than the rest, the label is not adding information.
+
 ### A metric that was removed
 
 An early version also scored "current figure used" on the trap case: whether

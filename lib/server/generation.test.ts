@@ -50,13 +50,24 @@ const {
 void _sources;
 void _grounding;
 
-function modelOutput(sourceIdsPerAction: string[][], confidence = "High") {
+type ModelAction = {
+  claimType?: "policy_requirement" | "proposal" | "assumption";
+  evidence?: { sourceId: string; quote: string } | null;
+};
+
+function modelOutput(
+  sourceIdsPerAction: string[][],
+  confidence = "High",
+  claims: ModelAction[] = [],
+) {
   return JSON.stringify({
     ...basePlan,
     confidenceLevel: confidence,
     recommendedOperationalActions: sourceIdsPerAction.map((sourceIds, index) => ({
       action: `Action ${index + 1}`,
       sourceIds,
+      claimType: claims[index]?.claimType ?? "proposal",
+      evidence: claims[index]?.evidence ?? null,
     })),
   });
 }
@@ -233,7 +244,7 @@ describe("grounded generation", () => {
 
     expect(result.generation).toMatchObject({
       model: "test-model",
-      promptVersion: "action-plan-v3-grounded",
+      promptVersion: "action-plan-v4-claims",
     });
   });
 });
@@ -412,5 +423,197 @@ describe("rate limit salt", () => {
     expect(
       getRateLimitSalt({ ...env, RATE_LIMIT_SALT: undefined, SESSION_SECRET: undefined }),
     ).toBe("sustainops-dev-salt");
+  });
+});
+
+// ---- claims, quotations and the generation record -------------------------
+
+/** The text of one retrieved source, as it appears in the prompt. */
+function sourceText(prompt: string, id: string) {
+  const match = prompt.match(
+    new RegExp(
+      `\\[${id}\\][^\\n]*\\n([\\s\\S]*?)(?:\\n\\n\\[S\\d+\\]|\\n\\nReturn only valid JSON|$)`,
+    ),
+  );
+
+  return (match?.[1] ?? "").replace(/\s+/g, " ").trim();
+}
+
+/** A model that quotes `quote(sourceText)` for a policy claim on action 1. */
+function claimingModel(
+  make: (s1: string) => ModelAction,
+  sourceIds = ["S1"],
+): ModelCaller {
+  return async ({ input }) => ({
+    text: modelOutput([sourceIds, ["S1"], ["S1"]], "High", [
+      make(sourceText(input, "S1")),
+    ]),
+    inputTokens: 1,
+    outputTokens: 1,
+  });
+}
+
+describe("claims and quotations", () => {
+  it("keeps a policy claim whose quotation is in the source, in the source's own words", async () => {
+    const result = await run(
+      claimingModel((s1) => ({
+        claimType: "policy_requirement",
+        // Shouting is not the source's wording; the stored quote must be.
+        evidence: { sourceId: "S1", quote: s1.slice(0, 90).toUpperCase() },
+      })),
+    );
+    const [first] = result.actionPlan.recommendedOperationalActions;
+    const source = result.actionPlan.sources[0];
+
+    expect(first).toMatchObject({
+      claimType: "policy_requirement",
+      downgradeReason: null,
+      evidence: { sourceId: "S1" },
+    });
+    expect(source.excerpt).toContain(first.evidence!.quote);
+    expect(result.generation).toMatchObject({
+      policyClaims: 1,
+      policyClaimsVerified: 1,
+    });
+  });
+
+  it("downgrades a paraphrase to a proposal and says why", async () => {
+    const result = await run(
+      claimingModel(() => ({
+        claimType: "policy_requirement",
+        evidence: {
+          sourceId: "S1",
+          quote: "Floors should be consolidated whenever the hotel is quiet",
+        },
+      })),
+    );
+    const [first] = result.actionPlan.recommendedOperationalActions;
+
+    expect(first).toMatchObject({
+      claimType: "proposal",
+      evidence: null,
+      downgradeReason: "quote_not_found",
+    });
+    expect(result.generation).toMatchObject({
+      policyClaims: 1,
+      policyClaimsVerified: 0,
+    });
+  });
+
+  it("downgrades a claim with no quotation, a trivial one, or one from an uncited source", async () => {
+    const cases: [ModelAction, string][] = [
+      [{ claimType: "policy_requirement", evidence: null }, "no_quote"],
+      [
+        {
+          claimType: "policy_requirement",
+          evidence: { sourceId: "S1", quote: "reduced mode" },
+        },
+        "quote_too_short",
+      ],
+      [
+        {
+          claimType: "policy_requirement",
+          evidence: { sourceId: "S9", quote: "A real-looking sentence from nowhere" },
+        },
+        "source_not_cited",
+      ],
+    ];
+
+    for (const [claim, reason] of cases) {
+      const result = await run(claimingModel(() => claim), {
+        GENERATION_LIMIT_PER_HOUR: 100,
+      });
+
+      expect(result.actionPlan.recommendedOperationalActions[0]).toMatchObject({
+        claimType: "proposal",
+        downgradeReason: reason,
+      });
+    }
+  });
+
+  it("does not let an action quote a source it does not cite", async () => {
+    const result = await run(
+      claimingModel(
+        (s1) => ({
+          claimType: "policy_requirement",
+          evidence: { sourceId: "S1", quote: s1.slice(0, 90) },
+        }),
+        [], // the action cites nothing, yet claims S1 as its evidence
+      ),
+    );
+
+    expect(result.actionPlan.recommendedOperationalActions[0]).toMatchObject({
+      claimType: "proposal",
+      downgradeReason: "source_not_cited",
+    });
+  });
+
+  it("keeps assumptions and proposals as claimed, and ignores evidence on them", async () => {
+    const result = await run(
+      claimingModel(() => ({
+        claimType: "assumption",
+        evidence: { sourceId: "S1", quote: "this should be ignored entirely" },
+      })),
+    );
+
+    expect(result.actionPlan.recommendedOperationalActions[0]).toMatchObject({
+      claimType: "assumption",
+      evidence: null,
+      downgradeReason: null,
+    });
+    expect(result.generation.policyClaims).toBe(0);
+  });
+});
+
+describe("the generation record", () => {
+  it("keeps the case, the finished plan, the claim counts and why each section was or was not used", async () => {
+    const result = await run(
+      claimingModel((s1) => ({
+        claimType: "policy_requirement",
+        evidence: { sourceId: "S1", quote: s1.slice(0, 90) },
+      })),
+    );
+    const [row] = await db.select().from(schema.aiGenerations);
+
+    expect(row.input).toEqual(energyCase);
+    expect(row.output).toEqual(result.actionPlan);
+    expect(row.policyClaims).toBe(1);
+    expect(row.policyClaimsVerified).toBe(1);
+
+    const diagnostics = row.diagnostics!;
+    const decisions = new Set(diagnostics.candidates.map((c) => c.decision));
+
+    expect(diagnostics.caseDepartment).toBe("Engineering");
+    expect(diagnostics.embeddingModel).toBe(hashEmbedder.model);
+    // Kept sections are exactly the sources the model was given.
+    expect(
+      diagnostics.candidates.filter((c) => c.decision === "kept").length,
+    ).toBe(result.actionPlan.sources.length);
+    // Other departments' documents and superseded versions were considered
+    // and excluded for stated reasons, not silently ignored.
+    expect(decisions.has("excluded_department")).toBe(true);
+    expect(decisions.has("excluded_status")).toBe(true);
+    for (const candidate of diagnostics.candidates) {
+      if (candidate.decision === "excluded_department") {
+        expect(["Engineering", "All departments"]).not.toContain(
+          candidate.department,
+        );
+      }
+
+      if (candidate.decision === "excluded_status") {
+        expect(candidate.documentStatus).not.toBe("approved");
+      }
+    }
+  });
+
+  it("does not record an output for a failed generation", async () => {
+    await expect(run(reply("not json at all"))).rejects.toMatchObject({
+      code: "ai_invalid_output",
+    });
+
+    const [row] = await db.select().from(schema.aiGenerations);
+
+    expect(row.status).toBe("failed");
+    expect(row.output).toBeNull();
   });
 });

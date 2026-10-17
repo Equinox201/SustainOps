@@ -14,6 +14,7 @@ import type {
   PlanNote,
   PlanRevision,
   PlanRevisionSummary,
+  RetrievalDiagnostics,
   StoredActionPlan,
 } from "@/lib/types";
 import type { LifecycleEvent } from "../domain/lifecycle";
@@ -275,4 +276,24 @@ export async function fetchRevision(id: string, version: number) {
   return result.ok
     ? { ok: true as const, data: result.data.revision as PlanRevision }
     : result;
+}
+
+const retrievalResponse = z.object({
+  generation: z.object({
+    id: z.string(),
+    model: z.string(),
+    promptVersion: z.string(),
+    createdAt: z.string(),
+    policyClaims: z.number(),
+    policyClaimsVerified: z.number(),
+  }),
+  diagnostics: z.custom<RetrievalDiagnostics>(
+    (value) => typeof value === "object" && value !== null,
+  ),
+});
+
+export async function fetchRetrieval(id: string) {
+  return apiRequest(`/api/action-plans/${encodeURIComponent(id)}/retrieval`, {
+    schema: retrievalResponse,
+  });
 }

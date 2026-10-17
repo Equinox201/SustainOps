@@ -48,6 +48,8 @@ async function evaluateCase(
     actionsCited: 0,
     citationsDropped: 0,
     citationsKept: 0,
+    policyClaims: 0,
+    policyClaimsVerified: 0,
     untraceableFigures: [],
     figuresChecked: 0,
     kpisMeasurable: 0,
@@ -104,6 +106,8 @@ async function evaluateCase(
         (sum, item) => sum + item.sourceIds.length,
         0,
       ),
+      policyClaims: generation.policyClaims,
+      policyClaimsVerified: generation.policyClaimsVerified,
       untraceableFigures: figures.untraceable,
       figuresChecked: figures.checked,
       kpisMeasurable: plan.kpisToMonitor.filter(isMeasurableKpi).length,
@@ -118,6 +122,7 @@ async function evaluateCase(
         .filter((item) => item.sourceIds.length > 0)
         .map((item) => ({
           action: item.action,
+          verifiedPolicy: item.claimType === "policy_requirement",
           excerpts: item.sourceIds
             .map((id) => plan.sources.find((source) => source.id === id)?.excerpt)
             .filter((excerpt): excerpt is string => Boolean(excerpt)),
@@ -129,14 +134,18 @@ async function evaluateCase(
           baseURL: env.OPENAI_BASE_URL,
           model: options.judge.model,
           timeoutMs: env.OPENAI_TIMEOUT_MS,
-          items,
+          items: items.map(({ action, excerpts }) => ({ action, excerpts })),
+        });
+        const tally = (subset: typeof verdicts) => ({
+          supported: subset.filter((v) => v === "supported").length,
+          partial: subset.filter((v) => v === "partial").length,
+          unsupported: subset.filter((v) => v === "unsupported").length,
         });
 
-        result.judge = {
-          supported: verdicts.filter((v) => v === "supported").length,
-          partial: verdicts.filter((v) => v === "partial").length,
-          unsupported: verdicts.filter((v) => v === "unsupported").length,
-        };
+        result.judge = tally(verdicts);
+        result.judgePolicy = tally(
+          verdicts.filter((_, index) => items[index].verifiedPolicy),
+        );
       } catch {
         // A judge failure must not hide the generation result.
       }

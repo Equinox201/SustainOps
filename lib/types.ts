@@ -3,6 +3,7 @@ import type {
   ActionStatus,
   ActorRef,
   AIActionPlan,
+  CaseDrift,
   ChangeRequest,
   ChangeResponse,
   GovernanceReview,
@@ -23,6 +24,7 @@ export type {
   ActionStatus,
   ActorRef,
   AIActionPlan,
+  CaseDrift,
   ChangeRequest,
   ChangeResponse,
   GovernanceReview,
@@ -50,9 +52,43 @@ export type AuditEventType =
   | "action_plan_completed"
   | "action_plan_deleted"
   | "plan_resubmitted"
+  | "drift_acknowledged"
   | "note_added"
   | "action_notes_updated"
   | "kpi_progress_updated";
+
+/** Why a section of the knowledge base was, or was not, given to the model. */
+export type RetrievalDecision =
+  | "kept"
+  | "below_floor"
+  | "beyond_top_k"
+  | "excluded_status"
+  | "excluded_department"
+  | "excluded_model";
+
+export type RetrievalCandidate = {
+  chunkId: string;
+  documentId: string;
+  documentTitle: string;
+  documentVersion: number;
+  documentStatus: string;
+  department: string;
+  sectionRef: string;
+  heading: string;
+  /** Similarity to the case; null when the vectors are not comparable. */
+  score: number | null;
+  decision: RetrievalDecision;
+};
+
+/** Everything retrieval considered for one generation, and what it decided. */
+export type RetrievalDiagnostics = {
+  query: string;
+  embeddingModel: string;
+  topK: number;
+  minScore: number;
+  caseDepartment: string;
+  candidates: RetrievalCandidate[];
+};
 
 export type AuditEvent = {
   id: string;
@@ -84,6 +120,10 @@ export type StoredActionPlan = {
   /** The AI's output as first saved or last regenerated; never edited. */
   originalAiOutput: AIActionPlan | null;
   changeRequests: ChangeRequest[];
+  /** The case as the AI saw it; null if the plan was not generated. */
+  generatedCase: SustainabilityCaseInput | null;
+  /** Accepted despite the case changing since generation. */
+  driftAcknowledged: boolean;
   approved: boolean;
   completed: boolean;
   reviewStatus: "none" | "changes_requested";

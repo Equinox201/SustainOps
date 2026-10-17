@@ -1,14 +1,19 @@
 import type {
+  AIActionPlan,
   ActorRef,
   GovernanceReview,
   PlanContent,
   ReadinessChecklist,
   StoredActionPlan,
+  SustainabilityCaseInput,
 } from "@/lib/types";
 import type { EditorDraft } from "../types";
 import { deepEqual } from "./deep-equal";
 import {
+  asHumanAuthored,
   coreActionView,
+  generatedText,
+  getCaseDrift,
   normalizeActions,
   trackingView,
   type ActionItemError,
@@ -24,7 +29,12 @@ import { getPlanTitle, getReviewerStatus, hasCompleteCase } from "./plan-utils";
  */
 
 export type LifecycleEvent =
-  "approve" | "request_changes" | "resubmit" | "complete" | "reset_approval";
+  | "approve"
+  | "request_changes"
+  | "resubmit"
+  | "acknowledge_drift"
+  | "complete"
+  | "reset_approval";
 
 export type LifecycleError =
   | "case_incomplete"
@@ -39,6 +49,11 @@ export type LifecycleError =
   | "no_open_request"
   | "responses_incomplete"
   | "invalid_assignee"
+  | "needs_reassessment"
+  | "no_drift"
+  | "plan_differs_from_generation"
+  | "generated_text_locked"
+  | "generation_required"
   | "self_approval_forbidden"
   | ActionItemError;
 
@@ -66,10 +81,18 @@ export const lifecycleErrorMessages: Record<LifecycleError, string> = {
     "Respond to every open change request before resubmitting.",
   invalid_assignee:
     "An action is assigned to someone who cannot take it. Pick a person from this plan's department.",
+  needs_reassessment:
+    "The case was edited after this plan was generated. Regenerate the plan, or acknowledge that it still applies, before approval.",
+  no_drift: "The case has not changed since this plan was generated.",
+  plan_differs_from_generation:
+    "The plan does not match what the AI generated. Save the plan as it was generated, then edit its actions.",
+  generated_text_locked:
+    "The AI-generated text cannot be edited. Edit the actions, or regenerate the plan.",
+  generation_required:
+    "A plan that came from the AI cannot be detached from its generation.",
   invalid_actions: "Each action must have its own id.",
   blank_action:
     "Every action needs some text. Fill in or remove the empty one.",
-  unknown_source: "An action cites a source that is not part of this plan.",
   blocked_reason_required: "Say what is blocking an action marked Blocked.",
 };
 
@@ -127,6 +150,8 @@ export function planToDraft(plan: StoredActionPlan): EditorDraft {
     version: plan.version,
     approvedVersion: plan.approvedVersion,
     originalAiOutput: plan.originalAiOutput,
+    generatedCase: plan.generatedCase,
+    driftAcknowledged: plan.driftAcknowledged,
     changeRequests: plan.changeRequests,
     approved: plan.approved,
     completed: plan.completed,
@@ -171,6 +196,12 @@ export function checkDraftSavable(draft: EditorDraft): LifecycleError | null {
     : null;
 }
 
+/** A recorded AI generation, as read back from the server's own record. */
+export type VerifiedGeneration = {
+  input: SustainabilityCaseInput;
+  output: AIActionPlan;
+};
+
 /** Builds a brand-new, unapproved plan from validated content. */
 export function createPlanFromContent(
   content: PlanContent,
@@ -178,11 +209,14 @@ export function createPlanFromContent(
     id,
     now,
     generatedAt,
+    generation,
     createdBy = null,
   }: {
     id: string;
     now: string;
     generatedAt: string | null;
+    /** The recorded generation the content claims to come from, if any. */
+    generation: VerifiedGeneration | null;
     createdBy?: ActorRef | null;
   },
 ): LifecycleResult {
@@ -190,13 +224,27 @@ export function createPlanFromContent(
     return { ok: false, error: "not_generated" };
   }
 
-  // A new plan's content comes from a generation: everything in it is AI's.
-  const normalized = normalizeActions(content.actionPlan, null, {
-    regenerated: true,
-  });
+  let actionPlan: AIActionPlan;
 
-  if (!normalized.ok) {
-    return { ok: false, error: normalized.error };
+  if (generation) {
+    // The plan is whatever the server recorded, not whatever the client sent.
+    if (!deepEqual(content.actionPlan, generation.output)) {
+      return { ok: false, error: "plan_differs_from_generation" };
+    }
+
+    actionPlan = generation.output;
+  } else {
+    actionPlan = asHumanAuthored(content.actionPlan);
+  }
+
+  const items = actionPlan.recommendedOperationalActions;
+
+  if (new Set(items.map((item) => item.id)).size !== items.length) {
+    return { ok: false, error: "invalid_actions" };
+  }
+
+  if (items.some((item) => item.action.trim() === "")) {
+    return { ok: false, error: "blank_action" };
   }
 
   return {
@@ -205,8 +253,10 @@ export function createPlanFromContent(
       id,
       title: getPlanTitle(content.sustainabilityCase),
       ...content,
-      actionPlan: normalized.actionPlan,
-      originalAiOutput: normalized.actionPlan,
+      actionPlan,
+      originalAiOutput: generation ? actionPlan : null,
+      generatedCase: generation ? generation.input : null,
+      driftAcknowledged: false,
       changeRequests: [],
       approvedVersion: null,
       governanceReview: buildGovernanceReview({
@@ -251,7 +301,16 @@ const FIELDS_LOCKED_AFTER_APPROVAL = [
 export function applyContentUpdate(
   existing: StoredActionPlan,
   content: PlanContent,
-  { now, generatedAt }: { now: string; generatedAt: string | null },
+  {
+    now,
+    generatedAt,
+    generation,
+  }: {
+    now: string;
+    generatedAt: string | null;
+    /** The recorded generation, when the content names a new one. */
+    generation: VerifiedGeneration | null;
+  },
 ): LifecycleResult {
   if (!content.actionPlan) {
     return { ok: false, error: "not_generated" };
@@ -281,14 +340,47 @@ export function applyContentUpdate(
   }
 
   const generationChanged = existing.generationId !== content.generationId;
-  const normalized = normalizeActions(content.actionPlan, existing.actionPlan, {
-    regenerated: generationChanged,
-  });
 
-  if (!normalized.ok) {
-    return { ok: false, error: normalized.error };
+  if (generationChanged && !generation) {
+    // Detaching a plan from the generation it came from would let its AI
+    // claims outlive their record.
+    return { ok: false, error: "generation_required" };
   }
 
+  let actionPlan: AIActionPlan;
+
+  if (generation) {
+    if (!deepEqual(content.actionPlan, generation.output)) {
+      return { ok: false, error: "plan_differs_from_generation" };
+    }
+
+    actionPlan = generation.output;
+  } else {
+    // Only the actions can be edited; the generated text and its retrieval
+    // record belong to the generation.
+    if (
+      !existing.actionPlan ||
+      !deepEqual(
+        generatedText(existing.actionPlan),
+        generatedText(content.actionPlan),
+      )
+    ) {
+      return { ok: false, error: "generated_text_locked" };
+    }
+
+    const normalized = normalizeActions(content.actionPlan, existing.actionPlan);
+
+    if (!normalized.ok) {
+      return { ok: false, error: normalized.error };
+    }
+
+    actionPlan = normalized.actionPlan;
+  }
+
+  const caseChanged = !deepEqual(
+    existing.sustainabilityCase,
+    content.sustainabilityCase,
+  );
   const auditTimestamp = generationChanged
     ? (generatedAt ?? now)
     : existing.governanceReview.auditTimestamp;
@@ -299,11 +391,16 @@ export function applyContentUpdate(
       ...existing,
       title: getPlanTitle(content.sustainabilityCase),
       ...content,
-      actionPlan: normalized.actionPlan,
-      // The baseline moves only when the AI produces a new plan.
-      originalAiOutput: generationChanged
-        ? normalized.actionPlan
-        : existing.originalAiOutput,
+      actionPlan,
+      // The baseline and the case it answered move only with a new generation.
+      originalAiOutput: generation ? actionPlan : existing.originalAiOutput,
+      generatedCase: generation ? generation.input : existing.generatedCase,
+      // Editing the case again after acknowledging reopens the question.
+      driftAcknowledged: generation
+        ? false
+        : caseChanged
+          ? false
+          : existing.driftAcknowledged,
       governanceReview: buildGovernanceReview({
         approved: existing.approved,
         completed: existing.completed,
@@ -357,6 +454,10 @@ export function transitionPlan(
 
       if (plan.reviewStatus === "changes_requested") {
         return { ok: false, error: "changes_pending" };
+      }
+
+      if (getCaseDrift(plan) === "drifted") {
+        return { ok: false, error: "needs_reassessment" };
       }
 
       // Separation of duties: the author of a plan cannot approve it.
@@ -451,6 +552,25 @@ export function transitionPlan(
           approvedBy: null,
           approvedAt: null,
         },
+      };
+    }
+
+    case "acknowledge_drift": {
+      if (plan.approved || plan.completed) {
+        return { ok: false, error: "already_approved" };
+      }
+
+      if (getCaseDrift(plan) !== "drifted") {
+        return { ok: false, error: "no_drift" };
+      }
+
+      if (!comment || comment.trim().length === 0) {
+        return { ok: false, error: "comment_required" };
+      }
+
+      return {
+        ok: true,
+        plan: { ...plan, driftAcknowledged: true, updatedAt: now },
       };
     }
 

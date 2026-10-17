@@ -77,6 +77,42 @@ and enforced on the server, inside the same transaction as the change.
 > request. `getSessionPrincipal` is the single seam to replace with a real
 > identity provider (Supabase Auth or OIDC) without touching authorization.
 
+## Provenance: what is the AI's, and what is verified
+
+A cited source shows what the model was *given*. It does not show that the
+model *used it correctly*, or that an action is something the company
+*requires*. So every AI action carries a label the server stands behind:
+
+| Label | Means |
+| --- | --- |
+| **Policy requirement** | The action carries out a rule a source states, **and** the server found the model's quotation word for word in that source's excerpt. The highlighted quotation is shown. |
+| **Proposal** | A sensible suggestion. Sources may support it; none requires it. |
+| **Assumption** | Relies on something about the hotel the case and sources do not state. |
+| *Not classified* | Written before labels existed. Never guessed at. |
+
+- The model *claims* a label (prompt v4) and offers a quotation. The server
+  accepts "policy requirement" only if the quotation appears in an excerpt the
+  action itself cites (whitespace, case and typographic punctuation ignored; at
+  least four words). Otherwise the action is stored as a proposal with the
+  reason (`quote_not_found`, `source_not_cited`, `quote_too_short`, `no_quote`).
+  The stored quotation is the source's own wording, not the model's rendering.
+- **Provenance is the server's record, not the client's claim.** Each generation
+  stores the case it was given and the plan it produced. A plan can only claim
+  AI origin by naming a generation, and what is saved must equal that record. A
+  plan with no generation is the author's own work: no sources, no claims. Origin,
+  sources, label and evidence of an existing action cannot be changed by a
+  client, and rewording a policy action drops it to a proposal, because the
+  quotation no longer vouches for the new words.
+- **Stale plans are caught.** The case as the AI saw it is stored with the plan.
+  If the case is edited afterwards, the plan is flagged, the changed fields are
+  named, and approval is blocked until the plan is regenerated or its author
+  confirms in writing that it still applies. A further edit reopens the
+  question.
+- **Retrieval is explainable.** Every section of the knowledge base is scored
+  and given a decision for each generation (given to the model, below the floor,
+  ranked below the cut-off, another department's document, not approved), and
+  managers and reviewers can inspect that record.
+
 ## Grounded generation
 
 The model is not asked to recall policy. It is given approved sections and must
@@ -150,7 +186,7 @@ cases run through the production retrieval and generation code and are
 published at **`/evals`** (methodology and metric definitions in
 [`evals/README.md`](evals/README.md)).
 
-Latest full run (`gpt-5-mini`, `text-embedding-3-small`, commit `bf47943`):
+Latest full run (`gpt-5-mini`, `text-embedding-3-small`, prompt v4, commit `ffdf539`):
 
 | | Result | 95% CI |
 | --- | --- | --- |
@@ -160,12 +196,40 @@ Latest full run (`gpt-5-mini`, `text-embedding-3-small`, commit `bf47943`):
 | Forbidden / superseded document retrieved | **0 / 24** | 0–14% |
 | Off-topic cases that correctly retrieved nothing | 2 / 2 | 34–100% |
 | Plans valid on the first attempt | 24 / 24 | 86–100% |
-| Recommended actions citing a retrieved source | 101 / 104 | 92–99% |
-| Citations to sources the model was never given | 0 / 151 | 0–2% |
-| Percentage/temperature figures not traceable to the case or sources | 2 / 21 | 3–29% |
-| Cited actions an LLM judge rated **fully** supported | 37 / 101 | 28–46% |
-| Cited actions rated at least partly supported | 100 / 101 | 95–100% |
-| Latency, median / p95 | 15.9 s / 20.7 s | |
+| Recommended actions citing a retrieved source | 100 / 108 | 86–96% |
+| Citations to sources the model was never given | 0 / 122 | 0–3% |
+| Percentage/temperature figures not traceable to the case or sources | 1 / 15 | 1–30% |
+| Cited actions an LLM judge rated **fully** supported | 48 / 100 | 38–58% |
+| Cited actions rated at least partly supported | 100 / 100 | 96–100% |
+| Actions the model called policy requirements | 82 / 117 | 61–78% |
+| …whose quotation the server found in the source | **82 / 82** | 96–100% |
+| Verified policy actions judged fully supported | 46 / 82 | 45–66% |
+| Every other cited action judged fully supported | 2 / 18 | 3–33% |
+| Latency, median / p95 | 30.8 s / 39.2 s | |
+
+What the statement labels showed (the parts that are not flattering):
+
+- **The quotation check rejected nothing.** All 82 quotations were real, so on
+  this benchmark the model did not fabricate a quotation. That is a good result
+  about the model, but it also means the check has not yet caught a real failure:
+  it is proven by unit tests with forged and paraphrased quotations, not by
+  production traffic.
+- **The model over-assigns the label.** It called 70% of actions policy
+  requirements. A verified one means *the source contains those words*, not
+  *the source requires this action*: 44% of verified policy actions were still
+  judged only partly supported (the quotation is real; the action adds detail
+  beyond it).
+- **The label does carry signal.** Verified policy actions were judged fully
+  supported far more often than the remaining cited actions (56% vs 11%), but
+  the comparison group is only 18 actions, the intervals are wide, and it is one
+  run of a single model with a same-family judge. Read it as encouraging, not
+  settled.
+- **Latency roughly doubled** (median 15.9 s to 30.8 s). Prompt v4 asks for
+  quotations and a label per action, which means more output; run-to-run
+  variance in a reasoning model also contributes. I have not separated the two.
+- **Overall fully-supported (48%) is not a demonstrated improvement.** Earlier
+  runs ranged 37–43%; the intervals overlap. The labels do not change the
+  generated content, they change what the product claims about it.
 
 How to read it, including the parts that are less flattering:
 
@@ -173,19 +237,20 @@ How to read it, including the parts that are less flattering:
   retrieved, the trap case did not repeat the superseded figure, injected
   instructions and guest identifiers were not echoed, and off-topic cases were
   labelled as general guidance.
-- **"Partially supported" is the common verdict, not "fully".** Across four
-  full runs the fully-supported share ranged 37–43%. Inspecting the verdicts
+- **"Partially supported" is the common verdict, not "fully".** Across five
+  full runs the fully-supported share ranged 37–48%. Inspecting the verdicts
   shows the typical partial action follows a cited section and adds operational
   detail (a duration, a logging step), which is often desirable but is not the
-  same as the policy saying it. Surfacing "what the policy says" separately from
-  "what this plan proposes" is the obvious next product improvement.
+  same as the policy saying it. Statement labels (above) now surface "what the
+  policy says" separately from "what this plan proposes"; tightening when the
+  model may use the policy label is the next improvement.
 - **The judge is the same model family as the generator**, so it may be
   lenient, and it is a screening signal rather than ground truth.
-- **Untraceable figures are a proxy.** The two flagged here were a target the
-  plan proposed (100%); in an earlier run one was the model converting "one in
-  seven" to 14%. Neither is invented policy, which is why this is reported but
-  does not fail a case.
-- **Confidence is not discriminating.** 18 of 24 plans report High. The server
+- **Untraceable figures are a proxy.** In earlier runs the flagged figures were
+  a target the plan proposed (100%) and the model converting "one in seven" to
+  14%. Neither is invented policy, which is why this is reported but does not
+  fail a case.
+- **Confidence is not discriminating.** 13 of 24 plans report High. The server
   caps it when grounding is weak, but among grounded plans the model almost
   always says High, so it should not be relied on.
 - **Small and synthetic.** 24 cases over 49 synthetic sections, labelled by one
@@ -240,7 +305,7 @@ features/action-plans/
 | `plan_notes` | Append-only implementation notes. |
 | `users` | Seeded fictional personas with a role (and a department for department managers). |
 | `audit_events` | Append-only history of what happened to which plan and who did it. Written in the same transaction as the change. |
-| `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use, outcome, the sources retrieved and how many citations were dropped. Also backs rate limiting. |
+| `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use, outcome, the case it was given, the plan it produced, the full retrieval record, and how many policy claims held up. Also backs rate limiting. |
 | `knowledge_documents`, `knowledge_chunks` | The approved knowledge base and its section-level vectors (pgvector, in the `extensions` schema). |
 
 Row Level Security is enabled on every table with no policies, so nothing is
@@ -252,12 +317,13 @@ reachable through Supabase's public Data API; only the server reads and writes.
 | --- | --- |
 | `GET/POST /api/action-plans` | List and create plans |
 | `GET/PUT/DELETE /api/action-plans/:id` | Read, edit (lock rules enforced; body carries `expectedVersion`, stale writes answer `409`) and delete |
-| `POST /api/action-plans/:id/transition` | Approve, request changes, resubmit (with `responses`), complete or reset; optionally saves pending edits atomically. Carries `expectedVersion` |
+| `POST /api/action-plans/:id/transition` | Approve, request changes, resubmit (with `responses`), acknowledge that a stale plan still applies (with a reason), complete or reset; optionally saves pending edits atomically. Carries `expectedVersion` |
 | `GET /api/action-plans/:id/history` | The plan's attributed audit history |
 | `GET/POST /api/action-plans/:id/notes` | List and append implementation notes |
 | `GET /api/action-plans/:id/revisions`, `GET .../revisions/:version` | Versions of a plan, and one version's content |
 | `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/personas` | Demo sign-in |
 | `POST /api/action-plans/generate` | Generate a plan (validated, rate-limited, timed out, recorded) |
+| `GET /api/action-plans/:id/retrieval` | Why each knowledge section was or was not given to the model (managers and reviewers) |
 | `GET /api/audit-events` | Organisation-wide recent events (managers and reviewers) |
 | `GET /api/knowledge` | The knowledge base catalogue |
 
@@ -284,6 +350,7 @@ Next, in order:
 - [x] Evaluation suite for grounding, citations and schema compliance (published at `/evals`)
 - [x] Deployment configuration, abuse limits and nightly reset (see `DEPLOYMENT.md`)
 - [x] Phase 2 / B1: stable plan URLs and list filters, optimistic concurrency, unsaved-change guard, accurate loading states
+- [x] Phase 2 / B3: server-verified policy quotations, server-held generation records, stale-plan detection, evidence panel, retrieval record
 - [x] Phase 2 / B2: action-level model, revisions and comparison, explicit change-request resubmission, linked assignees, append-only notes
 
 ## Deployment
@@ -320,7 +387,7 @@ npm run evals     # the evaluation benchmark (see Evaluation)
 | Layer | What it covers | How |
 | --- | --- | --- |
 | Unit | Lifecycle state machine, permissions, action rules, snapshot diffs, UI capabilities, document parsing, embedder | Vitest |
-| Repository and retrieval | Transactions, rollbacks, lock rules, revisions, change requests, authorization matrix, audit accuracy; the data migration against legacy-shaped rows; pgvector retrieval over the real corpus (approved-only, department scope, floor) | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
+| Repository and retrieval | Transactions, rollbacks, lock rules, provenance and drift, revisions, change requests, authorization matrix, audit accuracy; the data migration against legacy-shaped rows; pgvector retrieval over the real corpus (approved-only, department scope, floor) | Vitest on in-memory Postgres (PGlite) running the **real migrations** |
 | API and generation | 401 / 403 / 404 / 400 / 415, forged cookies, CSRF, rate limits; malformed, truncated, retried and over-citing model output | Route handlers and the generation service, fake model |
 | End-to-end | A plan moving through four roles in a real browser; grounded and ungrounded plans; role-gated UI; API refusals; deep links, filters in the URL, and two sessions editing one plan | Playwright against the production build |
 

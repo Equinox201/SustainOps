@@ -10,9 +10,18 @@ import {
 } from "../domain/action-items";
 import { LIMITS } from "@/lib/schemas/action-plan";
 import { fieldClassName, secondaryButtonClassName } from "./form-styles";
+import { CLAIM_LABELS } from "@/lib/provenance";
+import { EvidencePanel } from "./EvidencePanel";
 import { SourceChips } from "./SourceChips";
 
 const STATUSES: ActionStatus[] = ["open", "in_progress", "blocked", "done"];
+
+const CLAIM_STYLES = {
+  policy_requirement: "border-emerald-300 bg-emerald-50 text-emerald-900",
+  proposal: "border-stone-200 bg-white text-stone-700",
+  assumption: "border-violet-200 bg-violet-50 text-violet-900",
+  unclassified: "border-stone-200 bg-stone-50 text-stone-500",
+} as const;
 
 const smallField = `${fieldClassName} mt-1 min-h-10 py-2`;
 
@@ -96,6 +105,9 @@ export function ActionList({
         action: "",
         sourceIds: [],
         origin: "human",
+        claimType: "proposal",
+        evidence: null,
+        downgradeReason: null,
         status: "open",
         assigneeId: null,
         dueDate: "",
@@ -119,7 +131,21 @@ export function ActionList({
               data-testid="action-item"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <OriginBadge action={item} original={original} />
+                <div className="flex flex-wrap gap-2">
+                  <OriginBadge action={item} original={original} />
+                  {item.origin === "ai" ? (
+                    <span
+                      className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${CLAIM_STYLES[item.claimType]}`}
+                      title={
+                        item.claimType === "policy_requirement"
+                          ? "A source states this, and the server found the quotation in it."
+                          : undefined
+                      }
+                    >
+                      {CLAIM_LABELS[item.claimType]}
+                    </span>
+                  ) : null}
+                </div>
                 {canEdit && actions.length > 1 ? (
                   <button
                     type="button"
@@ -152,6 +178,11 @@ export function ActionList({
               <SourceChips
                 sourceIds={item.sourceIds}
                 sources={actionPlan.sources}
+              />
+              <EvidencePanel
+                action={item}
+                actionPlan={actionPlan}
+                department={department}
               />
 
               <div className="mt-4 grid gap-3 sm:grid-cols-3">

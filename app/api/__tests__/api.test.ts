@@ -4,6 +4,7 @@ import { demoActionPlans } from "@/lib/demo-plans";
 import type { PlanContent } from "@/lib/schemas/action-plan";
 import { setDbForTesting, type Database } from "@/lib/server/db";
 import { createTestDb } from "@/lib/server/test-db";
+import { recordGeneration } from "@/lib/server/test-support";
 import {
   GET as listPlansRoute,
   POST as createPlanRoute,
@@ -29,6 +30,7 @@ process.env.CRON_SECRET = "test-cron-secret-0123456789";
 delete process.env.OPENAI_API_KEY;
 
 let db: Database;
+let generationId: string;
 
 beforeAll(async () => {
   db = await createTestDb();
@@ -39,6 +41,7 @@ beforeEach(async () => {
   await db.execute(
     sql`truncate action_plans, audit_events, ai_generations cascade`,
   );
+  generationId = await recordGeneration(db);
 });
 
 const noParams = { params: Promise.resolve({}) };
@@ -83,7 +86,7 @@ function content(overrides: Partial<PlanContent> = {}): PlanContent {
   return {
     sustainabilityCase: demo.sustainabilityCase,
     actionPlan: demo.actionPlan,
-    generationId: null,
+    generationId,
     owner: "Jordan Lee",
     priority: "High",
     targetDate: "2026-12-01",

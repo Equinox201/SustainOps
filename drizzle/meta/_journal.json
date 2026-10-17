@@ -50,6 +50,13 @@
       "when": 1792060878397,
       "tag": "0006_plan_actions_revisions_requests_notes",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792136829932,
+      "tag": "0007_provenance_generation_record",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { demoActionPlans, demoCitations } from "@/lib/demo-plans";
+import { demoActionPlans, demoCitations, demoClaims } from "@/lib/demo-plans";
+import { checkQuote, type DowngradeReason } from "@/lib/provenance";
 import type { SourceRef, StoredActionPlan } from "@/lib/types";
 import { schema, type Database } from "./db";
 
@@ -95,7 +96,34 @@ export async function buildGroundedDemoPlans(
           sourceIds.push(source.id);
         }
 
-        return { ...item, sourceIds };
+        const claim = demoClaims[plan.id]?.[index] ?? null;
+        const first = sourceIds[0]
+          ? [...aliasByKey.values()].find((s) => s.id === sourceIds[0])
+          : undefined;
+        let claimType: "policy_requirement" | "proposal" | "assumption" =
+          claim?.claim === "assumption" ? "assumption" : "proposal";
+        let evidence: { sourceId: string; quote: string } | null = null;
+        let downgradeReason: DowngradeReason | null = null;
+
+        if (claim?.claim === "policy_requirement") {
+          // The same check a real generation goes through.
+          const check =
+            first && claim.quote
+              ? checkQuote(claim.quote, first.excerpt)
+              : ({ ok: false, reason: "no_quote" } as const);
+
+          if (check.ok && first) {
+            claimType = "policy_requirement";
+            evidence = {
+              sourceId: first.id,
+              quote: first.excerpt.slice(check.start, check.end),
+            };
+          } else if (!check.ok) {
+            downgradeReason = check.reason;
+          }
+        }
+
+        return { ...item, sourceIds, claimType, evidence, downgradeReason };
       },
     );
 

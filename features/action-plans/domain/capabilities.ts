@@ -1,4 +1,5 @@
 import type { EditorDraft } from "../types";
+import { getCaseDrift } from "./action-items";
 import { can, type Principal } from "./permissions";
 
 /**
@@ -25,6 +26,7 @@ export function getEditorCapabilities(user: Principal, draft: EditorDraft) {
   // the AI's output is recorded before anyone edits it.
   const canEditActions = canEditCore && isSaved && hasPlan;
   const hasOpenRequest = draft.reviewStatus === "changes_requested";
+  const drift = getCaseDrift(draft);
 
   return {
     canEditCore,
@@ -39,9 +41,14 @@ export function getEditorCapabilities(user: Principal, draft: EditorDraft) {
       hasPlan &&
       isSaved &&
       open &&
-      !hasOpenRequest,
+      !hasOpenRequest &&
+      drift !== "drifted",
     canRequestChanges:
       can(user, "plan:request_changes", scope) && hasPlan && isSaved && open,
+    canAcknowledgeDrift:
+      can(user, "plan:edit", scope) && isSaved && open && drift === "drifted",
+    canViewDiagnostics:
+      can(user, "audit:view") && isSaved && draft.generationId !== null,
     canResubmit:
       can(user, "plan:resubmit", scope) && isSaved && open && hasOpenRequest,
     canComplete:

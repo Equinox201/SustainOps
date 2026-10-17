@@ -13,6 +13,7 @@ import { KpiPanel } from "./KpiPanel";
 import { PlanHistory } from "./PlanHistory";
 import { PlanNotes } from "./PlanNotes";
 import { PlanRevisions } from "./PlanRevisions";
+import { RetrievalDiagnostics } from "./RetrievalDiagnostics";
 import { ReadinessChecklist } from "./ReadinessChecklist";
 import { primaryButtonClassName } from "./form-styles";
 
@@ -36,6 +37,7 @@ type ActionPlanEditorProps = {
   onResetApproval: () => void;
   onRequestChanges: (comment: string) => void;
   onResubmit: (responses: ChangeResponse[]) => void;
+  onAcknowledgeDrift: (reason: string) => void;
 };
 
 export function ActionPlanEditor({
@@ -58,6 +60,7 @@ export function ActionPlanEditor({
   onResetApproval,
   onRequestChanges,
   onResubmit,
+  onAcknowledgeDrift,
 }: ActionPlanEditorProps) {
   const capabilities = getEditorCapabilities(user, draft);
   const history = usePlanHistory(draft.id, draft.updatedAt);
@@ -94,6 +97,7 @@ export function ActionPlanEditor({
         onReloadLatest={onReloadLatest}
         onRequestChanges={onRequestChanges}
         onResubmit={onResubmit}
+        onAcknowledgeDrift={onAcknowledgeDrift}
       />
 
       <div className="space-y-4">
@@ -190,6 +194,11 @@ export function ActionPlanEditor({
                     onDraftChange({ ...draft, actionPlan }),
                 }}
               />
+              {capabilities.canViewDiagnostics && draft.id ? (
+                <div className="mt-4">
+                  <RetrievalDiagnostics planId={draft.id} />
+                </div>
+              ) : null}
             </>
           ) : null}
         </EditorSection>

@@ -33,6 +33,9 @@ export type EditorDraft = {
   approvedVersion: number | null;
   /** The AI's output as first saved or last regenerated (read-only). */
   originalAiOutput: AIActionPlan | null;
+  /** The case as the AI saw it (null if not generated). */
+  generatedCase: StoredActionPlan["generatedCase"];
+  driftAcknowledged: boolean;
   changeRequests: StoredActionPlan["changeRequests"];
   approved: boolean;
   completed: boolean;

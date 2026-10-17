@@ -44,6 +44,7 @@ const successMessages: Record<LifecycleEvent, string | null> = {
   approve: null,
   request_changes: "Changes requested. The plan was returned to its authors.",
   resubmit: "Resubmitted for review with your responses.",
+  acknowledge_drift: "Acknowledged. The plan can now be approved as it stands.",
   complete: null,
   reset_approval:
     "Approval reset. Changes require a new approval before implementation.",
@@ -65,6 +66,8 @@ function createEmptyDraft(): EditorDraft {
     version: null,
     approvedVersion: null,
     originalAiOutput: null,
+    generatedCase: null,
+    driftAcknowledged: false,
     changeRequests: [],
     approved: false,
     completed: false,
@@ -180,6 +183,9 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
             sustainabilityCase,
             actionPlan,
             generationId: generation.id,
+            // What the AI just saw, so edits to the case from here on count.
+            generatedCase: sustainabilityCase,
+            driftAcknowledged: false,
             approved: false,
             completed: false,
             governanceReview: {
@@ -382,6 +388,16 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     void runLifecycleEvent("request_changes", { comment: comment.trim() });
   }
 
+  function acknowledgeDrift(reason: string) {
+    if (reason.trim().length === 0) {
+      setErrorMessage(lifecycleErrorMessages.comment_required);
+      setSuccessMessage(null);
+      return;
+    }
+
+    void runLifecycleEvent("acknowledge_drift", { comment: reason.trim() });
+  }
+
   function resubmit(responses: ChangeResponse[]) {
     void runLifecycleEvent("resubmit", { responses });
   }
@@ -408,5 +424,6 @@ export function useActionPlanEditor({ savePlan, transition }: PlanActions) {
     resetApproval,
     requestChanges,
     resubmit,
+    acknowledgeDrift,
   };
 }

@@ -3,6 +3,7 @@ import type { EditorCapabilities } from "../domain/capabilities";
 import { getPlanTitle } from "../domain/plan-utils";
 import type { EditorDraft } from "../types";
 import { primaryButtonClassName } from "./form-styles";
+import { DriftNotice } from "./DriftNotice";
 import { LockedNotice } from "./LockedNotice";
 import { PlanStateBadges } from "./PlanStateBadges";
 import { ReviewPanel } from "./ReviewPanel";
@@ -19,6 +20,7 @@ export function EditorSummary({
   onReloadLatest,
   onRequestChanges,
   onResubmit,
+  onAcknowledgeDrift,
 }: {
   draft: EditorDraft;
   capabilities: EditorCapabilities;
@@ -31,6 +33,7 @@ export function EditorSummary({
   onReloadLatest: () => void;
   onRequestChanges: (comment: string) => void;
   onResubmit: (responses: ChangeResponse[]) => void;
+  onAcknowledgeDrift: (reason: string) => void;
 }) {
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-6 shadow-sm sm:p-7">
@@ -78,6 +81,13 @@ export function EditorSummary({
       </p>
 
       {draft.approved ? <LockedNotice /> : null}
+
+      <DriftNotice
+        draft={draft}
+        canAcknowledge={capabilities.canAcknowledgeDrift}
+        isSaving={isSaving}
+        onAcknowledge={onAcknowledgeDrift}
+      />
 
       <ReviewPanel
         draft={draft}
