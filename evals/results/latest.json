@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "meta": {
-    "generatedAt": "2026-10-16T08:08:54.601Z",
+    "generatedAt": "2026-10-19T07:23:42.948Z",
     "mode": "full",
     "embedder": "text-embedding-3-small",
     "generationModel": "gpt-5-mini",
     "judgeModel": "gpt-5-mini",
-    "promptVersion": "action-plan-v4-claims",
+    "promptVersion": "action-plan-v5-untrusted-sources",
     "topK": 6,
     "minScore": 0.45,
-    "gitSha": "ffdf539",
+    "gitSha": "8efddac",
     "corpus": {
       "documents": 7,
       "approvedDocuments": 6,
@@ -96,39 +96,39 @@
         ]
       },
       "citationCoverage": {
-        "numerator": 100,
-        "denominator": 108,
-        "rate": 0.9259259259259259,
+        "numerator": 95,
+        "denominator": 110,
+        "rate": 0.8636363636363636,
         "interval": [
-          0.8606017449198994,
-          0.9619902065543283
+          0.787141630195824,
+          0.9155891817393563
         ]
       },
       "invalidCitationRate": {
         "numerator": 0,
-        "denominator": 122,
+        "denominator": 110,
         "rate": 0,
         "interval": [
           0,
-          0.0305272660233182
+          0.03374513358912735
         ]
       },
       "untraceableFigureRate": {
-        "numerator": 1,
-        "denominator": 15,
-        "rate": 0.06666666666666667,
+        "numerator": 0,
+        "denominator": 21,
+        "rate": 0,
         "interval": [
-          0.011866588606194856,
-          0.2981707755242399
+          0,
+          0.15464382326420195
         ]
       },
       "kpiMeasurable": {
-        "numerator": 94,
-        "denominator": 100,
-        "rate": 0.94,
+        "numerator": 98,
+        "denominator": 102,
+        "rate": 0.9607843137254902,
         "interval": [
-          0.8752303146877748,
-          0.9722142547333433
+          0.9034734282412418,
+          0.9846461769045611
         ]
       },
       "forbiddenTextCases": {
@@ -152,11 +152,11 @@
       "policy": {
         "claimShare": {
           "numerator": 82,
-          "denominator": 117,
-          "rate": 0.7008547008547008,
+          "denominator": 120,
+          "rate": 0.6833333333333333,
           "interval": [
-            0.6125801461386321,
-            0.7763587623167342
+            0.595519646541652,
+            0.7597729207378406
           ]
         },
         "claimsVerified": {
@@ -169,55 +169,55 @@
           ]
         },
         "supportedVerified": {
-          "numerator": 46,
+          "numerator": 55,
           "denominator": 82,
-          "rate": 0.5609756097560976,
+          "rate": 0.6707317073170732,
           "interval": [
-            0.45322727057239914,
-            0.6632663642153962
+            0.5633818520351263,
+            0.7628003253707004
           ]
         },
         "supportedOther": {
-          "numerator": 2,
-          "denominator": 18,
-          "rate": 0.1111111111111111,
+          "numerator": 1,
+          "denominator": 13,
+          "rate": 0.07692307692307693,
           "interval": [
-            0.031018868453582787,
-            0.3280024486660421
+            0.013710066379696323,
+            0.3331453392824736
           ]
         }
       },
       "faithfulness": {
         "supported": {
-          "numerator": 48,
-          "denominator": 100,
-          "rate": 0.48,
+          "numerator": 56,
+          "denominator": 95,
+          "rate": 0.5894736842105263,
           "interval": [
-            0.38464384320080547,
-            0.5768359490982345
+            0.4889523520569727,
+            0.6830400074353867
           ]
         },
         "supportedOrPartial": {
-          "numerator": 100,
-          "denominator": 100,
+          "numerator": 95,
+          "denominator": 95,
           "rate": 1,
           "interval": [
-            0.9630051925239981,
-            0.9999999999999999
+            0.9611337736337738,
+            1
           ]
         },
-        "actionsJudged": 100
+        "actionsJudged": 95
       },
       "latencyMs": {
-        "mean": 29433.5,
-        "p50": 30774.5,
-        "p95": 39249.5
+        "mean": 26955.375,
+        "p50": 27797,
+        "p95": 35111.799999999996
       },
-      "outputTokensMean": 3101.0416666666665,
+      "outputTokensMean": 3205.125,
       "confidence": {
         "Low": 2,
-        "Medium": 9,
-        "High": 13
+        "Medium": 15,
+        "High": 7
       }
     }
   },
@@ -320,32 +320,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 38901,
-        "inputTokens": 1256,
-        "outputTokens": 3474,
+        "latencyMs": 28164,
+        "inputTokens": 1398,
+        "outputTokens": 3341,
         "groundingStatus": "grounded",
         "groundingAsExpected": true,
         "actions": 5,
         "actionsCited": 5,
         "citationsDropped": 0,
-        "citationsKept": 8,
-        "policyClaims": 3,
-        "policyClaimsVerified": 3,
+        "citationsKept": 5,
+        "policyClaims": 5,
+        "policyClaimsVerified": 5,
         "untraceableFigures": [],
         "figuresChecked": 1,
-        "kpisMeasurable": 4,
-        "kpisTotal": 4,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "High",
         "judge": {
-          "supported": 3,
-          "partial": 2,
+          "supported": 4,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 3,
-          "partial": 0,
+          "supported": 4,
+          "partial": 1,
           "unsupported": 0
         }
       },
@@ -413,31 +413,31 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 35158,
-        "inputTokens": 1229,
-        "outputTokens": 3086,
-        "groundingStatus": "grounded",
+        "latencyMs": 30341,
+        "inputTokens": 1371,
+        "outputTokens": 3651,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
-        "actions": 4,
+        "actions": 5,
         "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 5,
-        "policyClaims": 3,
-        "policyClaimsVerified": 3,
+        "citationsKept": 4,
+        "policyClaims": 4,
+        "policyClaimsVerified": 4,
         "untraceableFigures": [],
-        "figuresChecked": 1,
+        "figuresChecked": 0,
         "kpisMeasurable": 4,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
-          "supported": 0,
-          "partial": 4,
+          "supported": 1,
+          "partial": 3,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 0,
+          "supported": 1,
           "partial": 3,
           "unsupported": 0
         }
@@ -466,7 +466,7 @@
             "id": "S3",
             "slug": "housekeeping-resource-efficiency",
             "sectionRef": "§3.1",
-            "score": 0.582
+            "score": 0.581
           },
           {
             "id": "S4",
@@ -502,32 +502,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 34929,
-        "inputTokens": 1230,
-        "outputTokens": 3052,
-        "groundingStatus": "grounded",
+        "latencyMs": 28217,
+        "inputTokens": 1372,
+        "outputTokens": 3354,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
-        "actionsCited": 5,
+        "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 6,
-        "policyClaims": 3,
-        "policyClaimsVerified": 3,
+        "citationsKept": 5,
+        "policyClaims": 4,
+        "policyClaimsVerified": 4,
         "untraceableFigures": [],
         "figuresChecked": 0,
-        "kpisMeasurable": 4,
-        "kpisTotal": 4,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
           "supported": 1,
-          "partial": 4,
+          "partial": 3,
           "unsupported": 0
         },
         "judgePolicy": {
           "supported": 1,
-          "partial": 2,
+          "partial": 3,
           "unsupported": 0
         }
       },
@@ -567,7 +567,7 @@
             "id": "S5",
             "slug": "sustainability-policy",
             "sectionRef": "§3.2",
-            "score": 0.581
+            "score": 0.582
           },
           {
             "id": "S6",
@@ -591,12 +591,12 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 39311,
-        "inputTokens": 1256,
-        "outputTokens": 3543,
-        "groundingStatus": "partial",
+        "latencyMs": 29104,
+        "inputTokens": 1398,
+        "outputTokens": 3312,
+        "groundingStatus": "grounded",
         "groundingAsExpected": true,
-        "actions": 5,
+        "actions": 4,
         "actionsCited": 4,
         "citationsDropped": 0,
         "citationsKept": 4,
@@ -604,11 +604,11 @@
         "policyClaimsVerified": 4,
         "untraceableFigures": [],
         "figuresChecked": 1,
-        "kpisMeasurable": 4,
+        "kpisMeasurable": 3,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "Medium",
+        "confidence": "High",
         "judge": {
           "supported": 3,
           "partial": 1,
@@ -688,34 +688,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 40031,
-        "inputTokens": 1231,
-        "outputTokens": 3737,
-        "groundingStatus": "grounded",
+        "latencyMs": 33864,
+        "inputTokens": 1373,
+        "outputTokens": 3840,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
-        "actionsCited": 5,
+        "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 6,
-        "policyClaims": 5,
-        "policyClaimsVerified": 5,
-        "untraceableFigures": [
-          "10%"
-        ],
-        "figuresChecked": 5,
+        "citationsKept": 4,
+        "policyClaims": 4,
+        "policyClaimsVerified": 4,
+        "untraceableFigures": [],
+        "figuresChecked": 3,
         "kpisMeasurable": 4,
-        "kpisTotal": 4,
+        "kpisTotal": 5,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
           "supported": 4,
-          "partial": 1,
+          "partial": 0,
           "unsupported": 0
         },
         "judgePolicy": {
           "supported": 4,
-          "partial": 1,
+          "partial": 0,
           "unsupported": 0
         }
       },
@@ -783,32 +781,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 17946,
-        "inputTokens": 1230,
-        "outputTokens": 2454,
+        "latencyMs": 42834,
+        "inputTokens": 1372,
+        "outputTokens": 4893,
         "groundingStatus": "grounded",
         "groundingAsExpected": true,
         "actions": 5,
         "actionsCited": 5,
         "citationsDropped": 0,
-        "citationsKept": 6,
+        "citationsKept": 7,
         "policyClaims": 3,
         "policyClaimsVerified": 3,
         "untraceableFigures": [],
-        "figuresChecked": 0,
+        "figuresChecked": 1,
         "kpisMeasurable": 4,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "High",
         "judge": {
-          "supported": 3,
-          "partial": 2,
+          "supported": 4,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 1,
-          "partial": 2,
+          "supported": 3,
+          "partial": 0,
           "unsupported": 0
         }
       },
@@ -876,15 +874,15 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 34240,
-        "inputTokens": 1226,
-        "outputTokens": 3582,
-        "groundingStatus": "grounded",
+        "latencyMs": 20556,
+        "inputTokens": 1368,
+        "outputTokens": 2505,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
-        "actionsCited": 5,
+        "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 7,
+        "citationsKept": 4,
         "policyClaims": 4,
         "policyClaimsVerified": 4,
         "untraceableFigures": [],
@@ -893,10 +891,10 @@
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
           "supported": 1,
-          "partial": 4,
+          "partial": 3,
           "unsupported": 0
         },
         "judgePolicy": {
@@ -969,31 +967,31 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 31837,
-        "inputTokens": 1231,
-        "outputTokens": 3348,
+        "latencyMs": 28880,
+        "inputTokens": 1373,
+        "outputTokens": 3577,
         "groundingStatus": "grounded",
         "groundingAsExpected": true,
         "actions": 5,
         "actionsCited": 5,
         "citationsDropped": 0,
         "citationsKept": 5,
-        "policyClaims": 4,
-        "policyClaimsVerified": 4,
+        "policyClaims": 5,
+        "policyClaimsVerified": 5,
         "untraceableFigures": [],
-        "figuresChecked": 1,
+        "figuresChecked": 2,
         "kpisMeasurable": 4,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "High",
         "judge": {
-          "supported": 3,
-          "partial": 2,
+          "supported": 4,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 3,
+          "supported": 4,
           "partial": 1,
           "unsupported": 0
         }
@@ -1058,9 +1056,9 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 24512,
-        "inputTokens": 1229,
-        "outputTokens": 2505,
+        "latencyMs": 26160,
+        "inputTokens": 1371,
+        "outputTokens": 3125,
         "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
@@ -1070,20 +1068,20 @@
         "policyClaims": 4,
         "policyClaimsVerified": 4,
         "untraceableFigures": [],
-        "figuresChecked": 1,
+        "figuresChecked": 3,
         "kpisMeasurable": 4,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "Medium",
         "judge": {
-          "supported": 4,
-          "partial": 0,
+          "supported": 3,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 4,
-          "partial": 0,
+          "supported": 3,
+          "partial": 1,
           "unsupported": 0
         }
       },
@@ -1152,32 +1150,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 33621,
-        "inputTokens": 1208,
-        "outputTokens": 3682,
+        "latencyMs": 27786,
+        "inputTokens": 1350,
+        "outputTokens": 3326,
         "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
         "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 6,
-        "policyClaims": 4,
-        "policyClaimsVerified": 4,
+        "citationsKept": 7,
+        "policyClaims": 3,
+        "policyClaimsVerified": 3,
         "untraceableFigures": [],
         "figuresChecked": 0,
-        "kpisMeasurable": 4,
+        "kpisMeasurable": 3,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "Medium",
         "judge": {
-          "supported": 2,
-          "partial": 2,
+          "supported": 3,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 2,
-          "partial": 2,
+          "supported": 3,
+          "partial": 0,
           "unsupported": 0
         }
       },
@@ -1245,24 +1243,24 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 22946,
-        "inputTokens": 1206,
-        "outputTokens": 2935,
-        "groundingStatus": "grounded",
+        "latencyMs": 35332,
+        "inputTokens": 1348,
+        "outputTokens": 4017,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
-        "actions": 5,
+        "actions": 6,
         "actionsCited": 5,
         "citationsDropped": 0,
-        "citationsKept": 5,
+        "citationsKept": 6,
         "policyClaims": 5,
         "policyClaimsVerified": 5,
         "untraceableFigures": [],
-        "figuresChecked": 1,
+        "figuresChecked": 2,
         "kpisMeasurable": 4,
-        "kpisTotal": 5,
+        "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
           "supported": 3,
           "partial": 2,
@@ -1322,9 +1320,9 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 24310,
-        "inputTokens": 1090,
-        "outputTokens": 2929,
+        "latencyMs": 24439,
+        "inputTokens": 1216,
+        "outputTokens": 2926,
         "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
@@ -1341,13 +1339,13 @@
         "staleFactHits": [],
         "confidence": "Medium",
         "judge": {
-          "supported": 0,
-          "partial": 4,
+          "supported": 1,
+          "partial": 3,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 0,
-          "partial": 4,
+          "supported": 1,
+          "partial": 3,
           "unsupported": 0
         }
       },
@@ -1411,15 +1409,15 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 28221,
-        "inputTokens": 1210,
-        "outputTokens": 2595,
-        "groundingStatus": "grounded",
+        "latencyMs": 29523,
+        "inputTokens": 1352,
+        "outputTokens": 3961,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
-        "actionsCited": 5,
+        "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 8,
+        "citationsKept": 6,
         "policyClaims": 4,
         "policyClaimsVerified": 4,
         "untraceableFigures": [],
@@ -1428,15 +1426,15 @@
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
-          "supported": 1,
-          "partial": 4,
+          "supported": 2,
+          "partial": 2,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 1,
-          "partial": 3,
+          "supported": 2,
+          "partial": 2,
           "unsupported": 0
         }
       },
@@ -1504,17 +1502,17 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 31016,
-        "inputTokens": 1217,
-        "outputTokens": 3354,
+        "latencyMs": 25942,
+        "inputTokens": 1359,
+        "outputTokens": 2908,
         "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
         "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 4,
-        "policyClaims": 4,
-        "policyClaimsVerified": 4,
+        "citationsKept": 6,
+        "policyClaims": 3,
+        "policyClaimsVerified": 3,
         "untraceableFigures": [],
         "figuresChecked": 0,
         "kpisMeasurable": 4,
@@ -1523,12 +1521,12 @@
         "staleFactHits": [],
         "confidence": "Medium",
         "judge": {
-          "supported": 3,
-          "partial": 1,
+          "supported": 2,
+          "partial": 2,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 3,
+          "supported": 2,
           "partial": 1,
           "unsupported": 0
         }
@@ -1569,17 +1567,17 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 20802,
-        "inputTokens": 1016,
-        "outputTokens": 2578,
+        "latencyMs": 21652,
+        "inputTokens": 1126,
+        "outputTokens": 2733,
         "groundingStatus": "grounded",
         "groundingAsExpected": true,
-        "actions": 4,
-        "actionsCited": 4,
+        "actions": 5,
+        "actionsCited": 5,
         "citationsDropped": 0,
-        "citationsKept": 4,
-        "policyClaims": 2,
-        "policyClaimsVerified": 2,
+        "citationsKept": 5,
+        "policyClaims": 3,
+        "policyClaimsVerified": 3,
         "untraceableFigures": [],
         "figuresChecked": 0,
         "kpisMeasurable": 4,
@@ -1588,13 +1586,13 @@
         "staleFactHits": [],
         "confidence": "High",
         "judge": {
-          "supported": 1,
-          "partial": 3,
+          "supported": 0,
+          "partial": 5,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 1,
-          "partial": 1,
+          "supported": 0,
+          "partial": 3,
           "unsupported": 0
         }
       },
@@ -1662,32 +1660,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 30933,
-        "inputTokens": 1278,
-        "outputTokens": 3873,
+        "latencyMs": 29045,
+        "inputTokens": 1420,
+        "outputTokens": 3471,
         "groundingStatus": "grounded",
         "groundingAsExpected": true,
         "actions": 5,
         "actionsCited": 5,
         "citationsDropped": 0,
         "citationsKept": 7,
-        "policyClaims": 5,
-        "policyClaimsVerified": 5,
+        "policyClaims": 4,
+        "policyClaimsVerified": 4,
         "untraceableFigures": [],
-        "figuresChecked": 0,
+        "figuresChecked": 1,
         "kpisMeasurable": 4,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "Medium",
         "judge": {
-          "supported": 3,
-          "partial": 2,
+          "supported": 4,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 3,
-          "partial": 2,
+          "supported": 4,
+          "partial": 0,
           "unsupported": 0
         }
       },
@@ -1751,21 +1749,21 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 36084,
-        "inputTokens": 1238,
-        "outputTokens": 3773,
+        "latencyMs": 26177,
+        "inputTokens": 1380,
+        "outputTokens": 3348,
         "groundingStatus": "grounded",
         "groundingAsExpected": true,
         "actions": 5,
         "actionsCited": 5,
         "citationsDropped": 0,
-        "citationsKept": 6,
+        "citationsKept": 5,
         "policyClaims": 5,
         "policyClaimsVerified": 5,
         "untraceableFigures": [],
-        "figuresChecked": 1,
-        "kpisMeasurable": 5,
-        "kpisTotal": 5,
+        "figuresChecked": 3,
+        "kpisMeasurable": 3,
+        "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "High",
@@ -1822,31 +1820,31 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 36535,
-        "inputTokens": 1104,
-        "outputTokens": 3766,
-        "groundingStatus": "grounded",
+        "latencyMs": 21674,
+        "inputTokens": 1222,
+        "outputTokens": 2776,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
-        "actionsCited": 5,
+        "actionsCited": 3,
         "citationsDropped": 0,
-        "citationsKept": 5,
-        "policyClaims": 4,
-        "policyClaimsVerified": 4,
+        "citationsKept": 3,
+        "policyClaims": 3,
+        "policyClaimsVerified": 3,
         "untraceableFigures": [],
         "figuresChecked": 0,
-        "kpisMeasurable": 3,
+        "kpisMeasurable": 4,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
-          "supported": 3,
-          "partial": 2,
+          "supported": 2,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 3,
+          "supported": 2,
           "partial": 1,
           "unsupported": 0
         }
@@ -1899,32 +1897,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 28568,
-        "inputTokens": 1097,
-        "outputTokens": 3121,
-        "groundingStatus": "partial",
+        "latencyMs": 22061,
+        "inputTokens": 1223,
+        "outputTokens": 2958,
+        "groundingStatus": "grounded",
         "groundingAsExpected": true,
         "actions": 5,
-        "actionsCited": 4,
+        "actionsCited": 5,
         "citationsDropped": 0,
         "citationsKept": 6,
         "policyClaims": 3,
         "policyClaimsVerified": 3,
         "untraceableFigures": [],
-        "figuresChecked": 0,
-        "kpisMeasurable": 4,
-        "kpisTotal": 4,
+        "figuresChecked": 2,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "Medium",
+        "confidence": "High",
         "judge": {
-          "supported": 2,
+          "supported": 3,
           "partial": 2,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 2,
-          "partial": 1,
+          "supported": 3,
+          "partial": 0,
           "unsupported": 0
         }
       },
@@ -1946,12 +1944,12 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 15918,
-        "inputTokens": 913,
-        "outputTokens": 1619,
+        "latencyMs": 17220,
+        "inputTokens": 993,
+        "outputTokens": 1890,
         "groundingStatus": "ungrounded",
         "groundingAsExpected": true,
-        "actions": 4,
+        "actions": 5,
         "actionsCited": 0,
         "citationsDropped": 0,
         "citationsKept": 0,
@@ -1959,8 +1957,8 @@
         "policyClaimsVerified": 0,
         "untraceableFigures": [],
         "figuresChecked": 0,
-        "kpisMeasurable": 3,
-        "kpisTotal": 4,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "Low",
@@ -1993,9 +1991,9 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 19819,
-        "inputTokens": 919,
-        "outputTokens": 2178,
+        "latencyMs": 15347,
+        "inputTokens": 999,
+        "outputTokens": 1798,
         "groundingStatus": "ungrounded",
         "groundingAsExpected": true,
         "actions": 5,
@@ -2006,8 +2004,8 @@
         "policyClaimsVerified": 0,
         "untraceableFigures": [],
         "figuresChecked": 0,
-        "kpisMeasurable": 3,
-        "kpisTotal": 5,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "Low",
@@ -2040,7 +2038,7 @@
             "id": "S2",
             "slug": "food-waste-sop",
             "sectionRef": "§3.2",
-            "score": 0.488
+            "score": 0.489
           },
           {
             "id": "S3",
@@ -2077,32 +2075,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 27175,
-        "inputTokens": 1177,
-        "outputTokens": 3344,
+        "latencyMs": 26344,
+        "inputTokens": 1319,
+        "outputTokens": 2849,
         "groundingStatus": "partial",
         "groundingAsExpected": null,
         "actions": 5,
         "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 5,
-        "policyClaims": 2,
-        "policyClaimsVerified": 2,
+        "citationsKept": 4,
+        "policyClaims": 1,
+        "policyClaimsVerified": 1,
         "untraceableFigures": [],
         "figuresChecked": 1,
-        "kpisMeasurable": 5,
-        "kpisTotal": 5,
+        "kpisMeasurable": 4,
+        "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "Medium",
         "judge": {
-          "supported": 0,
-          "partial": 4,
+          "supported": 1,
+          "partial": 3,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 0,
-          "partial": 2,
+          "supported": 1,
+          "partial": 0,
           "unsupported": 0
         }
       },
@@ -2166,32 +2164,32 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 30616,
-        "inputTokens": 1263,
-        "outputTokens": 3228,
-        "groundingStatus": "grounded",
+        "latencyMs": 27808,
+        "inputTokens": 1405,
+        "outputTokens": 3093,
+        "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
-        "actionsCited": 5,
+        "actionsCited": 4,
         "citationsDropped": 0,
-        "citationsKept": 7,
+        "citationsKept": 5,
         "policyClaims": 3,
         "policyClaimsVerified": 3,
         "untraceableFigures": [],
         "figuresChecked": 1,
-        "kpisMeasurable": 4,
-        "kpisTotal": 4,
+        "kpisMeasurable": 5,
+        "kpisTotal": 5,
         "forbiddenTextHits": [],
         "staleFactHits": [],
-        "confidence": "High",
+        "confidence": "Medium",
         "judge": {
-          "supported": 0,
-          "partial": 5,
+          "supported": 3,
+          "partial": 1,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 0,
-          "partial": 3,
+          "supported": 3,
+          "partial": 0,
           "unsupported": 0
         }
       },
@@ -2255,9 +2253,9 @@
       "generation": {
         "ok": true,
         "attempts": 1,
-        "latencyMs": 22975,
-        "inputTokens": 1251,
-        "outputTokens": 2669,
+        "latencyMs": 28459,
+        "inputTokens": 1393,
+        "outputTokens": 3271,
         "groundingStatus": "partial",
         "groundingAsExpected": true,
         "actions": 5,
@@ -2267,20 +2265,20 @@
         "policyClaims": 4,
         "policyClaimsVerified": 4,
         "untraceableFigures": [],
-        "figuresChecked": 1,
-        "kpisMeasurable": 3,
+        "figuresChecked": 0,
+        "kpisMeasurable": 4,
         "kpisTotal": 4,
         "forbiddenTextHits": [],
         "staleFactHits": [],
         "confidence": "Medium",
         "judge": {
-          "supported": 3,
-          "partial": 1,
+          "supported": 2,
+          "partial": 2,
           "unsupported": 0
         },
         "judgePolicy": {
-          "supported": 3,
-          "partial": 1,
+          "supported": 2,
+          "partial": 2,
           "unsupported": 0
         }
       },
