@@ -102,7 +102,7 @@ is generated under three versions of the world with nothing else changed:
 | --- | --- | --- |
 | Current (Energy SOP v2) | consolidate below 45% for 3+ nights | consolidate now |
 | Updated (v3, one sentence changed) | consolidate below 30% for 5+ nights | hold off |
-| None | no Energy SOP approved | no rule to apply |
+| None | no Energy SOP approved | nothing to cite; the model falls back on its own judgment |
 
 The update goes through the real lifecycle (a manager drafts, a reviewer
 publishes), then the document is withdrawn for the third condition. For each run

@@ -287,6 +287,20 @@ How to read it, including the parts that are less flattering:
   too easy (a lexical embedder passed 20 of 20), which is why paraphrased cases
   were added; the intervals above are wide.
 
+**Does retrieval change the decision?** A separate run
+(`npm run evals:counterfactual`, shown on `/evals`) generates one case (38%
+forecast occupancy for four nights: consolidate floors?) under three versions
+of the policy, using the real draft, review and publish steps. Under Energy SOP
+v2 (consolidate below 45% for three nights) the plan recommended consolidating
+in 3 of 3 runs, quoting the 45% rule; after a one-sentence change to v3 (below
+30% for five nights) it held off in 3 of 3, quoting the 30% rule. With the
+policy withdrawn the model still recommended consolidating, on its own
+judgment, and could cite only a generic group-wide target. So a rule that
+exists steers the decision and the quotation shows why; without one, the model's
+prior takes over, which is what the "partly grounded" label is for. One case,
+three runs each, a change I wrote, and a same-family classifier: a demonstration
+of the mechanism, not a rate.
+
 The retrieval benchmark also runs in CI with a free offline embedder as a
 regression gate for the metadata filtering and similarity floor.
 

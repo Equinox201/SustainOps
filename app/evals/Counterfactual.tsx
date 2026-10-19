@@ -125,6 +125,14 @@ export function Counterfactual() {
         </table>
       </div>
 
+      <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
+        Reading the last row: with no applicable rule the model falls back on its
+        own judgment, so “no policy” does not have to mean “no decision”. What
+        changes is what the plan can prove it relied on. Without the Energy
+        policy there is no threshold to quote, the grounding drops to partial,
+        and the only policy the plan can cite is a generic group-wide target.
+      </p>
+
       <details className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
         <summary className="cursor-pointer text-sm font-semibold text-stone-800">
           A verified quotation and a recommended action from each condition
