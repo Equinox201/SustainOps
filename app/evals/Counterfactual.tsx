@@ -157,7 +157,7 @@ export function Counterfactual() {
       </details>
 
       <h3 className="mt-5 text-sm font-semibold uppercase tracking-[0.13em] text-stone-700">
-        How far to trust this
+        How far to trust this demonstration
       </h3>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-stone-600">
         {report.limitations.map((limitation) => (
