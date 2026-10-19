@@ -22,7 +22,12 @@ const DECISION_STYLES: Record<Decision | "failed", string> = {
 
 /** Read at build time; the section is simply absent until a run is published. */
 function load(): CounterfactualReport | null {
-  const file = path.join(process.cwd(), "evals", "results", "counterfactual.json");
+  const file = path.join(
+    process.cwd(),
+    "evals",
+    "results",
+    "counterfactual.json",
+  );
 
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as CounterfactualReport;
@@ -65,7 +70,8 @@ export function Counterfactual() {
         policy, with nothing else changed. If the plans only reworded
         themselves, retrieval would be decoration. The case: forecast occupancy
         is 38 percent for four nights, and Engineering asks whether to
-        consolidate floors now. Run {new Date(report.meta.generatedAt).toISOString().slice(0, 10)} ·{" "}
+        consolidate floors now. Run{" "}
+        {new Date(report.meta.generatedAt).toISOString().slice(0, 10)} ·{" "}
         {report.meta.generationModel} · prompt {report.meta.promptVersion} ·{" "}
         {report.meta.runsPerCondition} runs per condition
         {report.meta.gitSha ? ` · commit ${report.meta.gitSha}` : ""}.
@@ -89,16 +95,27 @@ export function Counterfactual() {
           </thead>
           <tbody>
             {conditions.map((condition) => {
-              const figures = unique(condition.runs.map((r) => r.figuresInVerifiedQuotes));
+              const figures = unique(
+                condition.runs.map((r) => r.figuresInVerifiedQuotes),
+              );
               const documents = unique(
-                condition.runs.map((r) => r.citedDocuments.filter((d) => d.includes("Energy"))),
+                condition.runs.map((r) =>
+                  r.citedDocuments.filter((d) => d.includes("Energy")),
+                ),
               );
 
               return (
-                <tr key={condition.id} className="border-t border-stone-100 align-top">
+                <tr
+                  key={condition.id}
+                  className="border-t border-stone-100 align-top"
+                >
                   <td className="px-4 py-3">
-                    <span className="font-semibold text-stone-900">{condition.label}</span>
-                    <span className="block text-xs text-stone-500">{condition.description}</span>
+                    <span className="font-semibold text-stone-900">
+                      {condition.label}
+                    </span>
+                    <span className="block text-xs text-stone-500">
+                      {condition.description}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <ul className="flex flex-wrap gap-2">
@@ -107,16 +124,21 @@ export function Counterfactual() {
                           key={decision}
                           className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${DECISION_STYLES[decision]}`}
                         >
-                          {DECISION_LABELS[decision]}: {n} of {condition.runs.length}
+                          {DECISION_LABELS[decision]}: {n} of{" "}
+                          {condition.runs.length}
                         </li>
                       ))}
                     </ul>
                   </td>
                   <td className="px-4 py-3 text-stone-800">
-                    {figures.length > 0 ? figures.join(", ") : "none (nothing to quote)"}
+                    {figures.length > 0
+                      ? figures.join(", ")
+                      : "none (nothing to quote)"}
                   </td>
                   <td className="px-4 py-3 text-stone-700">
-                    {documents.length > 0 ? documents.join("; ") : "no Energy policy"}
+                    {documents.length > 0
+                      ? documents.join("; ")
+                      : "no Energy policy"}
                   </td>
                 </tr>
               );
@@ -126,9 +148,9 @@ export function Counterfactual() {
       </div>
 
       <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-600">
-        Reading the last row: with no applicable rule the model falls back on its
-        own judgment, so “no policy” does not have to mean “no decision”. What
-        changes is what the plan can prove it relied on. Without the Energy
+        Reading the last row: with no applicable rule the model falls back on
+        its own judgment, so “no policy” does not have to mean “no decision”.
+        What changes is what the plan can prove it relied on. Without the Energy
         policy there is no threshold to quote, the grounding drops to partial,
         and the only policy the plan can cite is a generic group-wide target.
       </p>
@@ -145,7 +167,9 @@ export function Counterfactual() {
               <li key={condition.id}>
                 <span className="font-semibold">{condition.label}</span>
                 {run?.verifiedQuotes[0] ? (
-                  <span className="block">Quoted: “{run.verifiedQuotes[0]}”</span>
+                  <span className="block">
+                    Quoted: “{run.verifiedQuotes[0]}”
+                  </span>
                 ) : null}
                 {run?.actions[0] ? (
                   <span className="block">Action: {run.actions[0]}</span>
@@ -157,7 +181,7 @@ export function Counterfactual() {
       </details>
 
       <h3 className="mt-5 text-sm font-semibold uppercase tracking-[0.13em] text-stone-700">
-        How far to trust this demonstration
+        Limits of this demonstration
       </h3>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-stone-600">
         {report.limitations.map((limitation) => (

@@ -22,13 +22,17 @@ test.describe("evaluation page", () => {
     const counterfactual = page.getByRole("region", {
       name: "Does retrieval change the decision",
     });
-    await expect(counterfactual).toContainText("Updated policy (Energy SOP v3)");
+    await expect(counterfactual).toContainText(
+      "Updated policy (Energy SOP v3)",
+    );
     await expect(counterfactual).toContainText("Hold off: 3 of 3");
     await expect(counterfactual).toContainText("Consolidate now: 3 of 3");
     await expect(counterfactual).toContainText("45%");
     await expect(counterfactual).toContainText("30%");
     await expect(
-      counterfactual.getByRole("heading", { name: /How far to trust/ }),
+      counterfactual.getByRole("heading", {
+        name: /Limits of this demonstration/,
+      }),
     ).toBeVisible();
 
     // Every benchmark case is listed with a verdict.
