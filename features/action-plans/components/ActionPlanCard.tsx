@@ -50,6 +50,11 @@ export function ActionPlanCard({
               {plan.title}
             </h3>
             <StatusBadge status={getVisibleStatus(plan)} />
+            {plan.sourceAlerts.length > 0 ? (
+              <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-950">
+                Sources changed
+              </span>
+            ) : null}
           </div>
           <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
             <Detail label="Property">{plan.sustainabilityCase.property}</Detail>

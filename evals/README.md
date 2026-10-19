@@ -91,6 +91,31 @@ restating the number, so the metric rewarded wording, not behaviour. It was
 removed rather than reported. The trap is judged by the check that matters:
 the plan must not repeat the superseded figure.
 
+## Counterfactual demonstration
+
+`npm run evals:counterfactual -- --runs 3` answers a different question from the
+benchmark: does retrieval change the *decision* a plan recommends, or only its
+wording? One case (38% forecast occupancy for four nights: consolidate floors?)
+is generated under three versions of the world with nothing else changed:
+
+| Policy in force | Rule | What the case should lead to |
+| --- | --- | --- |
+| Current (Energy SOP v2) | consolidate below 45% for 3+ nights | consolidate now |
+| Updated (v3, one sentence changed) | consolidate below 30% for 5+ nights | hold off |
+| None | no Energy SOP approved | no rule to apply |
+
+The update goes through the real lifecycle (a manager drafts, a reviewer
+publishes), then the document is withdrawn for the third condition. For each run
+the report records the grounding status, the percent figures inside quotations
+the server verified, the documents cited, and the decision, which a model
+classifies from the case and the plan alone (it never sees the policy). The
+figures in verified quotations are the check that does not depend on that
+classifier.
+
+Limits: one case, a few runs, a policy change I wrote, a same-family
+classifier. It shows the mechanism works on a controlled example; it is not a
+rate.
+
 ## Reading the numbers
 
 - **Counts, not just percentages.** With 24 cases a single failure moves a rate

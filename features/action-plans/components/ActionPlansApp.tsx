@@ -347,6 +347,8 @@ function Workspace({
                   <p className="text-sm text-rose-900">{auditError}</p>
                 ) : null}
                 <InsightsView
+                  user={user}
+                  onKnowledgeChanged={() => void refresh()}
                   plans={plans}
                   auditEvents={auditEvents}
                   auditLoading={auditLoading}

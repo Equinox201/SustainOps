@@ -40,6 +40,8 @@ and enforced on the server, inside the same transaction as the change.
 | --- | :---: | :---: | :---: |
 | See plans | all | own department | all |
 | Create cases, generate, edit plans; edit, add and assign actions | ✓ | | |
+| Write knowledge drafts and new versions | ✓ | | |
+| Publish or withdraw knowledge documents | | | ✓ |
 | Action progress and blockers, KPI progress, add notes | ✓ | ✓ | |
 | Respond to change requests and resubmit | ✓ | | |
 | Approve or request changes (with a comment) | | | ✓ |
@@ -112,6 +114,33 @@ model *used it correctly*, or that an action is something the company
   and given a decision for each generation (given to the model, below the floor,
   ranked below the cut-off, another department's document, not approved), and
   managers and reviewers can inspect that record.
+
+## Knowledge lifecycle
+
+Documents are not static files. Each has a key and immutable versions with a
+state: `draft`, `approved`, `superseded` or `withdrawn`.
+
+- **A manager writes, a reviewer publishes.** A draft is invisible to plan
+  generation. Publishing embeds its sections (the state shows as
+  `processing`, `available` or `failed`, with retry), makes it the approved
+  version and supersedes the one it replaces, atomically. The author cannot
+  publish their own document. A published version is never edited: a change is
+  a new version.
+- **Plans keep the sections they were built on.** When a document they cite is
+  superseded or withdrawn, plans are *flagged* with what changed and which
+  version now applies (also listed on the Insights page). Nothing is rewritten:
+  reassessing means regenerating, which records a new version.
+- **Sources are untrusted input.** Anyone who can publish can put text in front
+  of the model, so each source is delimited, labelled as data, and cannot close
+  its own delimiter; the system prompt tells the model never to follow
+  instructions inside it. This is a mitigation, not a proof: whether a model
+  ignores an injected instruction is only measurable, and the benchmark's
+  adversarial cases test injection in the *case* text, not in published
+  documents.
+- **Bounded for a public demo.** Document size, section count, the number of
+  documents written in the app and daily publishes are capped; the nightly reset
+  removes everything written in the app and restores shipped documents'
+  statuses, before it rebuilds the demo plans.
 
 ## Grounded generation
 
@@ -306,7 +335,7 @@ features/action-plans/
 | `users` | Seeded fictional personas with a role (and a department for department managers). |
 | `audit_events` | Append-only history of what happened to which plan and who did it. Written in the same transaction as the change. |
 | `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use, outcome, the case it was given, the plan it produced, the full retrieval record, and how many policy claims held up. Also backs rate limiting. |
-| `knowledge_documents`, `knowledge_chunks` | The approved knowledge base and its section-level vectors (pgvector, in the `extensions` schema). |
+| `knowledge_documents`, `knowledge_chunks` | The knowledge base: versioned documents with a lifecycle state, who wrote and approved each, indexing status, and section-level vectors (pgvector, in the `extensions` schema). |
 
 Row Level Security is enabled on every table with no policies, so nothing is
 reachable through Supabase's public Data API; only the server reads and writes.
@@ -325,7 +354,9 @@ reachable through Supabase's public Data API; only the server reads and writes.
 | `POST /api/action-plans/generate` | Generate a plan (validated, rate-limited, timed out, recorded) |
 | `GET /api/action-plans/:id/retrieval` | Why each knowledge section was or was not given to the model (managers and reviewers) |
 | `GET /api/audit-events` | Organisation-wide recent events (managers and reviewers) |
-| `GET /api/knowledge` | The knowledge base catalogue |
+| `GET/POST /api/knowledge`, `POST /api/knowledge/preview` | The catalogue; save a draft; check how a draft splits into sections |
+| `GET/PUT/DELETE /api/knowledge/:id` | A document with its sections; edit or delete a draft |
+| `POST /api/knowledge/:id/publish`, `.../withdraw` | Publish a draft (reviewers; not the author); withdraw an approved document with a reason |
 
 Every endpoint requires a session (`401`), checks the role (`403`) and validates
 its body (`400`, `415`). Errors share one shape,
@@ -350,6 +381,7 @@ Next, in order:
 - [x] Evaluation suite for grounding, citations and schema compliance (published at `/evals`)
 - [x] Deployment configuration, abuse limits and nightly reset (see `DEPLOYMENT.md`)
 - [x] Phase 2 / B1: stable plan URLs and list filters, optimistic concurrency, unsaved-change guard, accurate loading states
+- [x] Phase 2 / B4: knowledge lifecycle (drafts, publish, supersede, withdraw), plans flagged when their sources change, untrusted-source prompt hardening, counterfactual demonstration
 - [x] Phase 2 / B3: server-verified policy quotations, server-held generation records, stale-plan detection, evidence panel, retrieval record
 - [x] Phase 2 / B2: action-level model, revisions and comparison, explicit change-request resubmission, linked assignees, append-only notes
 
