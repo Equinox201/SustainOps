@@ -280,9 +280,10 @@ How to read it, including the parts that are less flattering:
   a target the plan proposed (100%) and the model converting "one in seven" to
   14%. Neither is invented policy, which is why this is reported but does not
   fail a case.
-- **Confidence is a little more varied this run** (7 High, 15 Medium, 2 Low) but still not something to rely on; across runs most plans report High or Medium. The server
-  caps it when grounding is weak, but among grounded plans the model almost
-  always says High, so it should not be relied on.
+- **Confidence is not discriminating.** This run reports 7 High, 15 Medium and
+  2 Low; earlier runs had most plans at High. The server caps it when grounding
+  is weak, but it varies run to run for the same cases, so it should not be
+  relied on.
 - **Small and synthetic.** 24 cases over 49 synthetic sections, labelled by one
   person and written against the corpus. The first version of the benchmark was
   too easy (a lexical embedder passed 20 of 20), which is why paraphrased cases
