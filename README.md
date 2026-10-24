@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/sustainops.png" alt="SustainOps" width="200"/>
+</p>
+
 # SustainOps
 
 [![CI](https://github.com/Equinox201/SustainOps/actions/workflows/ci.yml/badge.svg)](https://github.com/Equinox201/SustainOps/actions/workflows/ci.yml)
