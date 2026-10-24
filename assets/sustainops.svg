@@ -1,0 +1,106 @@
+<!--
+  SustainOps logo, source for assets/sustainops.png.
+  Same card system as the other project tiles: portrait 355x461, near-black card, glossy icon
+  cluster, three caption lines. Text uses "DIN Condensed" (macOS); render the PNG on a machine
+  that has it, e.g. with Playwright: page.locator("svg").screenshot() at deviceScaleFactor 2.
+  Icons: a leaf (sustainability) in a progress ring, a policy document with one verified
+  (highlighted) quotation, and a draft -> review -> approved stepper (human-reviewed plans).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="355" height="461" viewBox="0 0 355 461">
+  <defs>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9af7c4"/><stop offset="0.55" stop-color="#2fd085"/><stop offset="1" stop-color="#0f8f58"/>
+    </linearGradient>
+    <linearGradient id="greenText" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a6f9cb"/><stop offset="0.5" stop-color="#37d68c"/><stop offset="1" stop-color="#14995c"/>
+    </linearGradient>
+    <linearGradient id="bezel" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#5a6a7d"/><stop offset="0.45" stop-color="#2a3644"/><stop offset="1" stop-color="#141b24"/>
+    </linearGradient>
+    <radialGradient id="face" cx="0.38" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#1b2736"/><stop offset="0.7" stop-color="#0d1420"/><stop offset="1" stop-color="#080c13"/>
+    </radialGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#18222f"/><stop offset="1" stop-color="#0e151e"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#b6fbd5"/><stop offset="0.5" stop-color="#34d388"/><stop offset="1" stop-color="#0d7f4f"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#10c97a" stop-opacity="0.16"/>
+      <stop offset="0.6" stop-color="#10c97a" stop-opacity="0.05"/>
+      <stop offset="1" stop-color="#10c97a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3.2" flood-color="#2fd085" flood-opacity="0.65"/>
+    </filter>
+  </defs>
+
+  <!-- card -->
+  <rect width="355" height="461" fill="#06090d"/>
+  <rect x="7" y="7" width="341" height="447" rx="24" fill="#0c1118" stroke="#1d2733" stroke-width="1.5"/>
+  <rect x="7" y="7" width="341" height="447" rx="24" fill="none" stroke="#ffffff" stroke-opacity="0.04" stroke-width="1" transform="translate(0.5 0.5)"/>
+  <circle cx="150" cy="165" r="165" fill="url(#bgGlow)"/>
+
+  <!-- policy document (behind) -->
+  <g filter="url(#shadow)">
+    <rect x="206" y="40" width="120" height="116" rx="13" fill="url(#tile)" stroke="#2c3a4b" stroke-width="1.4"/>
+    <path d="M206 53 a13 13 0 0 1 13 -13 h94 a13 13 0 0 1 13 13 v14 h-120 z" fill="url(#green)" fill-opacity="0.9"/>
+    <rect x="219" y="49" width="34" height="5" rx="2.5" fill="#06210f" fill-opacity="0.55"/>
+    <rect x="219" y="78" width="88" height="6" rx="3" fill="#1f2b39"/>
+    <rect x="219" y="91" width="74" height="6" rx="3" fill="#1f2b39"/>
+    <!-- the verified quotation, picked out -->
+    <rect x="215" y="102" width="98" height="13" rx="4" fill="url(#green)" fill-opacity="0.28" stroke="#37d68c" stroke-opacity="0.9" stroke-width="1.2"/>
+    <rect x="221" y="106" width="72" height="5" rx="2.5" fill="#d7ffe9"/>
+    <path d="M298 108.5 l3 3 l5 -6" fill="none" stroke="#7bf0b4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="219" y="124" width="82" height="6" rx="3" fill="#1f2b39"/>
+    <rect x="219" y="137" width="58" height="6" rx="3" fill="#1f2b39"/>
+  </g>
+
+  <!-- leaf disc -->
+  <g filter="url(#shadow)">
+    <circle cx="128" cy="160" r="88" fill="url(#bezel)" stroke="#0a0f15" stroke-width="2"/>
+    <circle cx="128" cy="160" r="82" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1.4"/>
+    <circle cx="128" cy="160" r="78" fill="url(#face)" stroke="#05080c" stroke-width="2"/>
+  </g>
+  <circle cx="128" cy="160" r="58" fill="none" stroke="#1a2431" stroke-width="12"/>
+  <circle cx="128" cy="160" r="58" fill="none" stroke="url(#green)" stroke-width="12" stroke-linecap="round"
+          stroke-dasharray="273 364.4" transform="rotate(-90 128 160)" filter="url(#glow)"/>
+  <circle cx="70" cy="160" r="6.2" fill="#f4fff9" stroke="#06291a" stroke-width="2"/>
+  <g filter="url(#glow)">
+    <path d="M128 124 C158 128 170 156 158 180 C150 196 122 198 108 186 C94 174 98 140 128 124 Z"
+          fill="url(#leaf)" stroke="#d7ffe9" stroke-opacity="0.35" stroke-width="1"/>
+    <path d="M112 186 C121 166 134 148 150 136" fill="none" stroke="#0a3a24" stroke-opacity="0.75" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M124 170 L132 164 M130 156 L139 152 M118 178 L126 176" stroke="#0a3a24" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+  <path d="M62 132 A72 72 0 0 1 120 88" fill="none" stroke="#ffffff" stroke-opacity="0.09" stroke-width="2.4" stroke-linecap="round"/>
+
+  <!-- review stepper (front) -->
+  <g filter="url(#shadow)">
+    <rect x="172" y="178" width="154" height="104" rx="13" fill="url(#tile)" stroke="#2f8a63" stroke-opacity="0.8" stroke-width="1.6"/>
+    <rect x="188" y="194" width="52" height="6" rx="3" fill="#2a3848"/>
+    <rect x="188" y="206" width="84" height="5" rx="2.5" fill="#1f2b39"/>
+    <line x1="198" y1="244" x2="302" y2="244" stroke="#1f2a37" stroke-width="3" stroke-linecap="round"/>
+    <line x1="198" y1="244" x2="302" y2="244" stroke="url(#green)" stroke-width="3" stroke-linecap="round" stroke-dasharray="104 104" filter="url(#glow)"/>
+    <circle cx="198" cy="244" r="8" fill="#0e151e" stroke="#37d68c" stroke-width="2"/>
+    <circle cx="250" cy="244" r="8" fill="#0e151e" stroke="#37d68c" stroke-width="2"/>
+    <circle cx="250" cy="244" r="3.2" fill="#7bf0b4"/>
+    <g filter="url(#glow)">
+      <circle cx="302" cy="244" r="11" fill="url(#green)" stroke="#e9fff3" stroke-width="2"/>
+      <path d="M296.5 244.5 l4 4 l7 -8" fill="none" stroke="#06210f" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <rect x="188" y="262" width="22" height="5" rx="2.5" fill="#1f2b39"/>
+    <rect x="240" y="262" width="22" height="5" rx="2.5" fill="#1f2b39"/>
+    <rect x="286" y="262" width="32" height="5" rx="2.5" fill="url(#green)" fill-opacity="0.7"/>
+  </g>
+
+  <!-- text -->
+  <g font-family="'DIN Condensed','Avenir Next Condensed','Arial Narrow',sans-serif" text-anchor="middle" font-weight="700">
+    <text x="177.5" y="334" font-size="26" letter-spacing="2.2" fill="#cfd8e3">SUSTAINABILITY OPS</text>
+    <text x="177.5" y="388" font-size="62" letter-spacing="1.5" fill="url(#greenText)">SUSTAINOPS</text>
+    <text x="177.5" y="428" font-size="22" letter-spacing="2" fill="#8c9db0">GROUNDED AI ACTION PLANS</text>
+  </g>
+</svg>
