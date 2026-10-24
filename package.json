@@ -17,6 +17,7 @@
     "knowledge:ingest": "tsx scripts/ingest-knowledge.ts",
     "knowledge:probe": "tsx scripts/probe-retrieval.ts",
     "evals": "tsx scripts/run-evals.ts",
+    "evals:counterfactual": "tsx scripts/run-counterfactual.ts",
     "evals:inspect": "tsx scripts/inspect-eval.ts"
   },
   "dependencies": {

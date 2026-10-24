@@ -6,6 +6,7 @@ import type {
   CaseDrift,
   ChangeRequest,
   ChangeResponse,
+  SourceAlert,
   GovernanceReview,
   Grounding,
   KPIProgress,
@@ -27,6 +28,7 @@ export type {
   CaseDrift,
   ChangeRequest,
   ChangeResponse,
+  SourceAlert,
   GovernanceReview,
   Grounding,
   KPIProgress,
@@ -52,6 +54,10 @@ export type AuditEventType =
   | "action_plan_completed"
   | "action_plan_deleted"
   | "plan_resubmitted"
+  | "knowledge_draft_saved"
+  | "knowledge_published"
+  | "knowledge_publish_failed"
+  | "knowledge_withdrawn"
   | "drift_acknowledged"
   | "note_added"
   | "action_notes_updated"
@@ -120,6 +126,8 @@ export type StoredActionPlan = {
   /** The AI's output as first saved or last regenerated; never edited. */
   originalAiOutput: AIActionPlan | null;
   changeRequests: ChangeRequest[];
+  /** Documents this plan cites that have since been superseded or withdrawn. */
+  sourceAlerts: SourceAlert[];
   /** The case as the AI saw it; null if the plan was not generated. */
   generatedCase: SustainabilityCaseInput | null;
   /** Accepted despite the case changing since generation. */

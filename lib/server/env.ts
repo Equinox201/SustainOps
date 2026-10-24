@@ -18,6 +18,9 @@ const envSchema = z.object({
   GENERATION_IP_LIMIT_PER_HOUR: z.coerce.number().int().min(1).default(5),
   GENERATION_DAILY_CAP: z.coerce.number().int().min(1).default(200),
   CRON_SECRET: z.string().min(16).optional(),
+  // Bounds on the public knowledge editor.
+  KNOWLEDGE_USER_DOC_CAP: z.coerce.number().int().min(1).default(20),
+  KNOWLEDGE_PUBLISH_DAILY_CAP: z.coerce.number().int().min(1).default(10),
   RATE_LIMIT_SALT: z.string().min(1).optional(),
 });
 

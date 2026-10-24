@@ -44,6 +44,8 @@ and enforced on the server, inside the same transaction as the change.
 | --- | :---: | :---: | :---: |
 | See plans | all | own department | all |
 | Create cases, generate, edit plans; edit, add and assign actions | ✓ | | |
+| Write knowledge drafts and new versions | ✓ | | |
+| Publish or withdraw knowledge documents | | | ✓ |
 | Action progress and blockers, KPI progress, add notes | ✓ | ✓ | |
 | Respond to change requests and resubmit | ✓ | | |
 | Approve or request changes (with a comment) | | | ✓ |
@@ -116,6 +118,33 @@ model *used it correctly*, or that an action is something the company
   and given a decision for each generation (given to the model, below the floor,
   ranked below the cut-off, another department's document, not approved), and
   managers and reviewers can inspect that record.
+
+## Knowledge lifecycle
+
+Documents are not static files. Each has a key and immutable versions with a
+state: `draft`, `approved`, `superseded` or `withdrawn`.
+
+- **A manager writes, a reviewer publishes.** A draft is invisible to plan
+  generation. Publishing embeds its sections (the state shows as
+  `processing`, `available` or `failed`, with retry), makes it the approved
+  version and supersedes the one it replaces, atomically. The author cannot
+  publish their own document. A published version is never edited: a change is
+  a new version.
+- **Plans keep the sections they were built on.** When a document they cite is
+  superseded or withdrawn, plans are *flagged* with what changed and which
+  version now applies (also listed on the Insights page). Nothing is rewritten:
+  reassessing means regenerating, which records a new version.
+- **Sources are untrusted input.** Anyone who can publish can put text in front
+  of the model, so each source is delimited, labelled as data, and cannot close
+  its own delimiter; the system prompt tells the model never to follow
+  instructions inside it. This is a mitigation, not a proof: whether a model
+  ignores an injected instruction is only measurable, and the benchmark's
+  adversarial cases test injection in the *case* text, not in published
+  documents.
+- **Bounded for a public demo.** Document size, section count, the number of
+  documents written in the app and daily publishes are capped; the nightly reset
+  removes everything written in the app and restores shipped documents'
+  statuses, before it rebuilds the demo plans.
 
 ## Grounded generation
 
@@ -190,7 +219,7 @@ cases run through the production retrieval and generation code and are
 published at **`/evals`** (methodology and metric definitions in
 [`evals/README.md`](evals/README.md)).
 
-Latest full run (`gpt-5-mini`, `text-embedding-3-small`, prompt v4, commit `ffdf539`):
+Latest full run (`gpt-5-mini`, `text-embedding-3-small`, prompt v5, commit `8efddac`):
 
 | | Result | 95% CI |
 | --- | --- | --- |
@@ -200,40 +229,41 @@ Latest full run (`gpt-5-mini`, `text-embedding-3-small`, prompt v4, commit `ffdf
 | Forbidden / superseded document retrieved | **0 / 24** | 0–14% |
 | Off-topic cases that correctly retrieved nothing | 2 / 2 | 34–100% |
 | Plans valid on the first attempt | 24 / 24 | 86–100% |
-| Recommended actions citing a retrieved source | 100 / 108 | 86–96% |
-| Citations to sources the model was never given | 0 / 122 | 0–3% |
-| Percentage/temperature figures not traceable to the case or sources | 1 / 15 | 1–30% |
-| Cited actions an LLM judge rated **fully** supported | 48 / 100 | 38–58% |
-| Cited actions rated at least partly supported | 100 / 100 | 96–100% |
-| Actions the model called policy requirements | 82 / 117 | 61–78% |
+| Recommended actions citing a retrieved source | 95 / 110 | 79–92% |
+| Citations to sources the model was never given | 0 / 110 | 0–3% |
+| Percentage/temperature figures not traceable to the case or sources | 0 / 21 | 0–15% |
+| Cited actions an LLM judge rated **fully** supported | 56 / 95 | 49–68% |
+| Cited actions rated at least partly supported | 95 / 95 | 96–100% |
+| Actions the model called policy requirements | 82 / 120 | 60–76% |
 | …whose quotation the server found in the source | **82 / 82** | 96–100% |
-| Verified policy actions judged fully supported | 46 / 82 | 45–66% |
-| Every other cited action judged fully supported | 2 / 18 | 3–33% |
-| Latency, median / p95 | 30.8 s / 39.2 s | |
+| Verified policy actions judged fully supported | 55 / 82 | 56–76% |
+| Every other cited action judged fully supported | 1 / 13 | 1–33% |
+| Latency, median / p95 | 27.8 s / 35.1 s | |
 
 What the statement labels showed (the parts that are not flattering):
 
-- **The quotation check rejected nothing.** All 82 quotations were real, so on
-  this benchmark the model did not fabricate a quotation. That is a good result
-  about the model, but it also means the check has not yet caught a real failure:
-  it is proven by unit tests with forged and paraphrased quotations, not by
-  production traffic.
-- **The model over-assigns the label.** It called 70% of actions policy
+- **The quotation check has rejected nothing on real output.** Across the two
+  full runs since labels were introduced, all 164 quotations were real. That is
+  a good result about the model, but it means the check has not yet caught a
+  real failure: it is proven by unit tests with forged and paraphrased
+  quotations, not by production traffic.
+- **The model over-assigns the label.** It called about 70% of actions policy
   requirements. A verified one means *the source contains those words*, not
-  *the source requires this action*: 44% of verified policy actions were still
-  judged only partly supported (the quotation is real; the action adds detail
-  beyond it).
-- **The label does carry signal.** Verified policy actions were judged fully
-  supported far more often than the remaining cited actions (56% vs 11%), but
-  the comparison group is only 18 actions, the intervals are wide, and it is one
-  run of a single model with a same-family judge. Read it as encouraging, not
-  settled.
-- **Latency roughly doubled** (median 15.9 s to 30.8 s). Prompt v4 asks for
-  quotations and a label per action, which means more output; run-to-run
-  variance in a reasoning model also contributes. I have not separated the two.
-- **Overall fully-supported (48%) is not a demonstrated improvement.** Earlier
-  runs ranged 37–43%; the intervals overlap. The labels do not change the
-  generated content, they change what the product claims about it.
+  *the source requires this action*: a third of verified policy actions were
+  still judged only partly supported (the quotation is real; the action adds
+  detail beyond it).
+- **The label does carry signal, in both runs.** Verified policy actions were
+  judged fully supported far more often than the remaining cited actions (67%
+  vs 8% here, 56% vs 11% before). The comparison group is small (13 to 18
+  actions per run), it is two runs of one model, and the judge is the same
+  family; read it as encouraging, not settled.
+- **Overall fully-supported (59%) is not a demonstrated improvement.** Six
+  full runs now range from 37% to 59%. The only prompt change between the last
+  two (delimiting source text as untrusted data) should not have moved this, so
+  run-to-run variance is the likelier explanation.
+- **Latency** is 27.8 s median, roughly double the pre-label prompt (15.9 s).
+  Quotations and a label per action mean more output; I have not separated that
+  from run-to-run variance in a reasoning model.
 
 How to read it, including the parts that are less flattering:
 
@@ -241,8 +271,8 @@ How to read it, including the parts that are less flattering:
   retrieved, the trap case did not repeat the superseded figure, injected
   instructions and guest identifiers were not echoed, and off-topic cases were
   labelled as general guidance.
-- **"Partially supported" is the common verdict, not "fully".** Across five
-  full runs the fully-supported share ranged 37–48%. Inspecting the verdicts
+- **"Partially supported" is the common verdict, not "fully".** Across six
+  full runs the fully-supported share ranged 37–59%. Inspecting the verdicts
   shows the typical partial action follows a cited section and adds operational
   detail (a duration, a logging step), which is often desirable but is not the
   same as the policy saying it. Statement labels (above) now surface "what the
@@ -254,13 +284,28 @@ How to read it, including the parts that are less flattering:
   a target the plan proposed (100%) and the model converting "one in seven" to
   14%. Neither is invented policy, which is why this is reported but does not
   fail a case.
-- **Confidence is not discriminating.** 13 of 24 plans report High. The server
-  caps it when grounding is weak, but among grounded plans the model almost
-  always says High, so it should not be relied on.
+- **Confidence is not discriminating.** This run reports 7 High, 15 Medium and
+  2 Low; earlier runs had most plans at High. The server caps it when grounding
+  is weak, but it varies run to run for the same cases, so it should not be
+  relied on.
 - **Small and synthetic.** 24 cases over 49 synthetic sections, labelled by one
   person and written against the corpus. The first version of the benchmark was
   too easy (a lexical embedder passed 20 of 20), which is why paraphrased cases
   were added; the intervals above are wide.
+
+**Does retrieval change the decision?** A separate run
+(`npm run evals:counterfactual`, shown on `/evals`) generates one case (38%
+forecast occupancy for four nights: consolidate floors?) under three versions
+of the policy, using the real draft, review and publish steps. Under Energy SOP
+v2 (consolidate below 45% for three nights) the plan recommended consolidating
+in 3 of 3 runs, quoting the 45% rule; after a one-sentence change to v3 (below
+30% for five nights) it held off in 3 of 3, quoting the 30% rule. With the
+policy withdrawn the model still recommended consolidating, on its own
+judgment, and could cite only a generic group-wide target. So a rule that
+exists steers the decision and the quotation shows why; without one, the model's
+prior takes over, which is what the "partly grounded" label is for. One case,
+three runs each, a change I wrote, and a same-family classifier: a demonstration
+of the mechanism, not a rate.
 
 The retrieval benchmark also runs in CI with a free offline embedder as a
 regression gate for the metadata filtering and similarity floor.
@@ -310,7 +355,7 @@ features/action-plans/
 | `users` | Seeded fictional personas with a role (and a department for department managers). |
 | `audit_events` | Append-only history of what happened to which plan and who did it. Written in the same transaction as the change. |
 | `ai_generations` | Every generation attempt: user, model, prompt version, latency, token use, outcome, the case it was given, the plan it produced, the full retrieval record, and how many policy claims held up. Also backs rate limiting. |
-| `knowledge_documents`, `knowledge_chunks` | The approved knowledge base and its section-level vectors (pgvector, in the `extensions` schema). |
+| `knowledge_documents`, `knowledge_chunks` | The knowledge base: versioned documents with a lifecycle state, who wrote and approved each, indexing status, and section-level vectors (pgvector, in the `extensions` schema). |
 
 Row Level Security is enabled on every table with no policies, so nothing is
 reachable through Supabase's public Data API; only the server reads and writes.
@@ -329,7 +374,9 @@ reachable through Supabase's public Data API; only the server reads and writes.
 | `POST /api/action-plans/generate` | Generate a plan (validated, rate-limited, timed out, recorded) |
 | `GET /api/action-plans/:id/retrieval` | Why each knowledge section was or was not given to the model (managers and reviewers) |
 | `GET /api/audit-events` | Organisation-wide recent events (managers and reviewers) |
-| `GET /api/knowledge` | The knowledge base catalogue |
+| `GET/POST /api/knowledge`, `POST /api/knowledge/preview` | The catalogue; save a draft; check how a draft splits into sections |
+| `GET/PUT/DELETE /api/knowledge/:id` | A document with its sections; edit or delete a draft |
+| `POST /api/knowledge/:id/publish`, `.../withdraw` | Publish a draft (reviewers; not the author); withdraw an approved document with a reason |
 
 Every endpoint requires a session (`401`), checks the role (`403`) and validates
 its body (`400`, `415`). Errors share one shape,
@@ -354,6 +401,7 @@ Next, in order:
 - [x] Evaluation suite for grounding, citations and schema compliance (published at `/evals`)
 - [x] Deployment configuration, abuse limits and nightly reset (see `DEPLOYMENT.md`)
 - [x] Phase 2 / B1: stable plan URLs and list filters, optimistic concurrency, unsaved-change guard, accurate loading states
+- [x] Phase 2 / B4: knowledge lifecycle (drafts, publish, supersede, withdraw), plans flagged when their sources change, untrusted-source prompt hardening, counterfactual demonstration
 - [x] Phase 2 / B3: server-verified policy quotations, server-held generation records, stale-plan detection, evidence panel, retrieval record
 - [x] Phase 2 / B2: action-level model, revisions and comparison, explicit change-request resubmission, linked assignees, append-only notes
 

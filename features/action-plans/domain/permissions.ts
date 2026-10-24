@@ -30,6 +30,8 @@ export type Permission =
   | "plan:reset_approval"
   | "plan:complete"
   | "audit:view"
+  | "knowledge:edit"
+  | "knowledge:publish"
   | "demo:reset";
 
 export type Principal = {
@@ -47,11 +49,11 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_SUMMARIES: Record<Role, string> = {
   sustainability_manager:
-    "Creates cases, generates and edits plans, monitors KPIs and closes out completed work.",
+    "Creates cases, generates and edits plans, drafts knowledge documents, monitors KPIs and closes out completed work.",
   department_manager:
     "Sees plans for their own department and records implementation notes and KPI progress.",
   reviewer:
-    "Reviews plans and approves them or requests changes. Cannot author plans.",
+    "Reviews plans and approves them or requests changes, and publishes or withdraws knowledge documents. Cannot author plans.",
 };
 
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
@@ -68,6 +70,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "plan:complete",
     "plan:reset_approval",
     "audit:view",
+    "knowledge:edit",
     "demo:reset",
   ],
   department_manager: ["plan:view", "plan:notes", "plan:track", "plan:kpi"],
@@ -77,6 +80,7 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "plan:request_changes",
     "plan:reset_approval",
     "audit:view",
+    "knowledge:publish",
   ],
 };
 

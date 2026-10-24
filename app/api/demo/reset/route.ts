@@ -1,8 +1,7 @@
 import { can } from "@/features/action-plans/domain/permissions";
 import { ApiError, json, withApi } from "@/lib/server/api";
-import { replaceDemoPlans } from "@/lib/server/action-plan-repo";
 import { getDb } from "@/lib/server/db";
-import { buildGroundedDemoPlans } from "@/lib/server/demo-seed";
+import { resetDemoData } from "@/lib/server/demo-reset";
 import { requirePrincipal } from "@/lib/server/session";
 
 /** Manager-triggered reset of the public demo to its fictional starting data. */
@@ -19,7 +18,7 @@ export const POST = withApi(async (request, { requestId }) => {
     );
   }
 
-  const result = await replaceDemoPlans(db, await buildGroundedDemoPlans(db), {
+  const result = await resetDemoData(db, {
     requestId,
     actorUserId: actor.id,
     trigger: "manual",

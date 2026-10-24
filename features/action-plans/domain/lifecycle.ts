@@ -153,6 +153,7 @@ export function planToDraft(plan: StoredActionPlan): EditorDraft {
     generatedCase: plan.generatedCase,
     driftAcknowledged: plan.driftAcknowledged,
     changeRequests: plan.changeRequests,
+    sourceAlerts: plan.sourceAlerts,
     approved: plan.approved,
     completed: plan.completed,
     reviewStatus: plan.reviewStatus,
@@ -258,6 +259,7 @@ export function createPlanFromContent(
       generatedCase: generation ? generation.input : null,
       driftAcknowledged: false,
       changeRequests: [],
+      sourceAlerts: [],
       approvedVersion: null,
       governanceReview: buildGovernanceReview({
         approved: false,
