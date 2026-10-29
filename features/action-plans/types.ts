@@ -37,6 +37,7 @@ export type EditorDraft = {
   generatedCase: StoredActionPlan["generatedCase"];
   driftAcknowledged: boolean;
   changeRequests: StoredActionPlan["changeRequests"];
+  sourceAlerts: StoredActionPlan["sourceAlerts"];
   approved: boolean;
   completed: boolean;
   reviewStatus: StoredActionPlan["reviewStatus"];
@@ -60,11 +61,30 @@ export type OverviewMetric = {
 export type KnowledgeDocumentInfo = {
   id: string;
   slug: string;
+  documentKey: string;
   title: string;
   department: string;
   documentType: string;
   region: string;
   version: number;
   status: string;
+  indexStatus: string | null;
+  indexError: string | null;
+  origin: string;
   chunkCount: number;
+  createdBy: { id: string; name: string } | null;
+  approvedBy: { id: string; name: string } | null;
+  approvedAt: string | null;
+};
+
+export type KnowledgeSectionInfo = {
+  sectionRef: string;
+  heading: string;
+  content: string;
+};
+
+export type KnowledgeDocumentDetail = {
+  document: KnowledgeDocumentInfo;
+  sections: KnowledgeSectionInfo[];
+  markdown: string | null;
 };

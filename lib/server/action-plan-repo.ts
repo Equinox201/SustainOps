@@ -5,6 +5,7 @@ import type {
   AuditEventType,
   ChangeRequest,
   ChangeResponse,
+  SourceAlert,
   PlanNote,
   PlanRevision,
   PlanRevisionSummary,
@@ -43,6 +44,7 @@ import { schema, type Database } from "./db";
 import type { ActionPlanRow } from "./db/schema";
 
 const {
+  knowledgeDocuments,
   actionPlanRevisions,
   actionPlans,
   aiGenerations,
@@ -153,6 +155,7 @@ function rowToPlan(
   row: ActionPlanRow,
   refs: UserRefs,
   requests: ChangeRequest[] = [],
+  alerts: SourceAlert[] = [],
 ): StoredActionPlan {
   const reviewStatus = row.reviewStatus as StoredActionPlan["reviewStatus"];
 
@@ -187,6 +190,7 @@ function rowToPlan(
     generatedCase: row.generatedCase,
     driftAcknowledged: row.driftAcknowledged,
     changeRequests: requests,
+    sourceAlerts: alerts,
     approved: row.approved,
     completed: row.completed,
     reviewStatus,
@@ -299,6 +303,96 @@ async function loadChangeRequests(
   return grouped;
 }
 
+/**
+ * Documents each plan was generated from that have since been superseded or
+ * withdrawn. Plans keep the sections they were built on, so their history is
+ * intact; this only tells people the ground has moved.
+ */
+async function loadSourceAlerts(
+  db: Database,
+  plans: Array<{ id: string; actionPlan: StoredActionPlan["actionPlan"] }>,
+): Promise<Map<string, SourceAlert[]>> {
+  const alerts = new Map<string, SourceAlert[]>();
+  const documentIds = [
+    ...new Set(
+      plans.flatMap((plan) =>
+        (plan.actionPlan?.sources ?? []).map((source) => source.documentId),
+      ),
+    ),
+  ];
+
+  if (documentIds.length === 0) {
+    return alerts;
+  }
+
+  const changed = await db
+    .select({
+      id: knowledgeDocuments.id,
+      key: knowledgeDocuments.documentKey,
+      title: knowledgeDocuments.title,
+      version: knowledgeDocuments.version,
+      status: knowledgeDocuments.status,
+    })
+    .from(knowledgeDocuments)
+    .where(
+      and(
+        inArray(knowledgeDocuments.id, documentIds),
+        inArray(knowledgeDocuments.status, ["superseded", "withdrawn"]),
+      ),
+    );
+
+  if (changed.length === 0) {
+    return alerts;
+  }
+
+  const current = await db
+    .select({
+      key: knowledgeDocuments.documentKey,
+      version: sql<number>`max(${knowledgeDocuments.version})::int`,
+    })
+    .from(knowledgeDocuments)
+    .where(
+      and(
+        inArray(
+          knowledgeDocuments.documentKey,
+          changed.map((row) => row.key),
+        ),
+        eq(knowledgeDocuments.status, "approved"),
+      ),
+    )
+    .groupBy(knowledgeDocuments.documentKey);
+  const currentByKey = new Map(current.map((row) => [row.key, row.version]));
+  const changedById = new Map(changed.map((row) => [row.id, row]));
+
+  for (const plan of plans) {
+    const seen = new Set<string>();
+    const list: SourceAlert[] = [];
+
+    for (const source of plan.actionPlan?.sources ?? []) {
+      const row = changedById.get(source.documentId);
+
+      if (!row || seen.has(row.id)) {
+        continue;
+      }
+
+      seen.add(row.id);
+      list.push({
+        documentId: row.id,
+        documentTitle: row.title,
+        citedVersion: row.version,
+        status: row.status as SourceAlert["status"],
+        currentVersion: currentByKey.get(row.key) ?? null,
+      });
+    }
+
+    if (list.length > 0) {
+      alerts.set(plan.id, list);
+    }
+  }
+
+  return alerts;
+}
+
 /** The content of a plan as a revision records it. */
 function toSnapshot(plan: StoredActionPlan): RevisionSnapshot {
   return {
@@ -402,7 +496,10 @@ async function lockPlan(
     .for("update");
   const refs = await loadUserRefs(db);
   const requests = row ? await loadChangeRequests(db, [row.id], refs) : null;
-  const plan = row ? rowToPlan(row, refs, requests?.get(row.id) ?? []) : null;
+  const alerts = row ? await loadSourceAlerts(db, [{ id: row.id, actionPlan: row.actionPlan }]) : null;
+  const plan = row
+    ? rowToPlan(row, refs, requests?.get(row.id) ?? [], alerts?.get(row.id) ?? [])
+    : null;
 
   if (!plan || !canAccessPlan(actor, plan)) {
     throw new ApiError(404, "plan_not_found", "Action plan not found.");
@@ -570,7 +667,11 @@ export async function listPlans(
     refs,
   );
 
-  return rows.map((row) => rowToPlan(row, refs, requests.get(row.id) ?? []));
+  const alerts = await loadSourceAlerts(db, rows);
+
+  return rows.map((row) =>
+    rowToPlan(row, refs, requests.get(row.id) ?? [], alerts.get(row.id) ?? []),
+  );
 }
 
 export async function getPlan(
@@ -586,7 +687,10 @@ export async function getPlan(
     .where(eq(actionPlans.id, id));
   const refs = await loadUserRefs(db);
   const requests = row ? await loadChangeRequests(db, [row.id], refs) : null;
-  const plan = row ? rowToPlan(row, refs, requests?.get(row.id) ?? []) : null;
+  const alerts = row ? await loadSourceAlerts(db, [{ id: row.id, actionPlan: row.actionPlan }]) : null;
+  const plan = row
+    ? rowToPlan(row, refs, requests?.get(row.id) ?? [], alerts?.get(row.id) ?? [])
+    : null;
 
   if (!plan || !canAccessPlan(actor, plan)) {
     throw new ApiError(404, "plan_not_found", "Action plan not found.");

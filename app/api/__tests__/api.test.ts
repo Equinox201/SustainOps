@@ -14,6 +14,13 @@ import {
   GET as listNotesRoute,
   POST as addNoteRoute,
 } from "../action-plans/[id]/notes/route";
+import {
+  GET as listKnowledgeRoute,
+  POST as saveKnowledgeRoute,
+} from "../knowledge/route";
+import { POST as previewKnowledgeRoute } from "../knowledge/preview/route";
+import { POST as publishKnowledgeRoute } from "../knowledge/[id]/publish/route";
+import { POST as withdrawKnowledgeRoute } from "../knowledge/[id]/withdraw/route";
 import { GET as listRevisionsRoute } from "../action-plans/[id]/revisions/route";
 import { GET as getRevisionRoute } from "../action-plans/[id]/revisions/[version]/route";
 import { POST as demoRoute } from "../action-plans/demo/route";
@@ -28,6 +35,7 @@ import { GET as meRoute } from "../auth/me/route";
 process.env.SESSION_SECRET = "test-session-secret-at-least-32-characters-long";
 process.env.CRON_SECRET = "test-cron-secret-0123456789";
 delete process.env.OPENAI_API_KEY;
+process.env.EMBEDDINGS_PROVIDER = "hash";
 
 let db: Database;
 let generationId: string;
@@ -39,7 +47,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await db.execute(
-    sql`truncate action_plans, audit_events, ai_generations cascade`,
+    sql`truncate action_plans, audit_events, ai_generations, knowledge_documents cascade`,
   );
   generationId = await recordGeneration(db);
 });
@@ -577,5 +585,99 @@ describe("notes, revisions and resubmission", () => {
       reviewStatus: "none",
       changeRequests: [{ status: "addressed", response: "KPI added." }],
     });
+  });
+});
+
+describe("knowledge lifecycle", () => {
+  const draft = {
+    title: "Night Audit Floor Policy",
+    department: "Engineering",
+    documentType: "policy",
+    body: "## 1. Scope\n\n### 1.1 Applicability\nThis applies to every guest floor.\n\n### 1.2 Threshold\nConsolidate floors below 30 percent occupancy.",
+  };
+  const withId = (id: string) => ({ params: Promise.resolve({ id }) });
+
+  it("lets a manager draft and a different role publish, and no one else do either", async () => {
+    const manager = await signIn("usr_maya_chen");
+    const reviewer = await signIn("usr_daniel_ortiz");
+    const department = await signIn("usr_priya_nair");
+
+    const anonymous = await saveKnowledgeRoute(
+      request("/api/knowledge", { method: "POST", body: draft }),
+      noParams,
+    );
+    expect(anonymous.status).toBe(401);
+
+    for (const cookie of [reviewer, department]) {
+      const refused = await saveKnowledgeRoute(
+        request("/api/knowledge", { method: "POST", body: draft, cookie }),
+        noParams,
+      );
+      expect(refused.status).toBe(403);
+    }
+
+    const preview = await previewKnowledgeRoute(
+      request("/api/knowledge/preview", { method: "POST", body: draft, cookie: manager }),
+      noParams,
+    );
+    expect((await preview.json()).sections).toHaveLength(2);
+
+    const saved = await saveKnowledgeRoute(
+      request("/api/knowledge", { method: "POST", body: draft, cookie: manager }),
+      noParams,
+    );
+    expect(saved.status).toBe(201);
+    const { document } = await saved.json();
+    expect(document).toMatchObject({ status: "draft", chunkCount: 0 });
+
+    // The author cannot publish; the reviewer can.
+    const byManager = await publishKnowledgeRoute(
+      request(`/api/knowledge/${document.id}/publish`, { method: "POST", cookie: manager }),
+      withId(document.id),
+    );
+    expect(byManager.status).toBe(403);
+
+    const published = await publishKnowledgeRoute(
+      request(`/api/knowledge/${document.id}/publish`, { method: "POST", cookie: reviewer }),
+      withId(document.id),
+    );
+    expect(published.status).toBe(200);
+    expect((await published.json()).document).toMatchObject({
+      status: "approved",
+      indexStatus: "available",
+      chunkCount: 2,
+    });
+
+    const listed = await listKnowledgeRoute(
+      request("/api/knowledge", { cookie: department }),
+      noParams,
+    );
+    expect((await listed.json()).documents).toHaveLength(1);
+
+    const withdrawn = await withdrawKnowledgeRoute(
+      request(`/api/knowledge/${document.id}/withdraw`, {
+        method: "POST",
+        body: { reason: "Superseded by group policy" },
+        cookie: reviewer,
+      }),
+      withId(document.id),
+    );
+    expect((await withdrawn.json()).document.status).toBe("withdrawn");
+  });
+
+  it("rejects malformed drafts before any work is done", async () => {
+    const manager = await signIn("usr_maya_chen");
+    const post = (body: unknown) =>
+      saveKnowledgeRoute(
+        request("/api/knowledge", { method: "POST", body, cookie: manager }),
+        noParams,
+      );
+
+    expect((await post({ ...draft, title: "A\nstatus: approved" })).status).toBe(400);
+    expect((await post({ ...draft, body: "" })).status).toBe(400);
+    expect((await post({ ...draft, body: "x".repeat(20_001) })).status).toBe(400);
+    expect((await post({ ...draft, documentType: "novel" })).status).toBe(400);
+    expect((await post({ ...draft, status: "approved" })).status).toBe(400);
+    expect((await post({ ...draft, body: "No numbered sections at all." })).status).toBe(422);
   });
 });

@@ -27,6 +27,7 @@ type SeedFields =
   | "generatedCase"
   | "driftAcknowledged"
   | "changeRequests"
+  | "sourceAlerts"
   | "reviewStatus"
   | "reviewComment"
   | "createdBy"
@@ -429,6 +430,7 @@ export const demoActionPlans: StoredActionPlan[] = rawDemoActionPlans.map(
       generatedCase: plan.sustainabilityCase,
       driftAcknowledged: false,
       changeRequests: [],
+      sourceAlerts: [],
       approvedVersion: null,
       generationId: null,
       version: 1,

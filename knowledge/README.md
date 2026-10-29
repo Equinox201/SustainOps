@@ -13,3 +13,8 @@ Only documents with `status: approved` are ever retrieved. The superseded
 v1 housekeeping SOP exists to prove that filter works.
 
 Ingest with `npm run knowledge:ingest`.
+
+Documents written in the app (by a manager, published by a reviewer) live only
+in the database and are removed by the nightly reset. These files are the
+shipped corpus: the reset restores their statuses, so a visitor who supersedes
+or withdraws one never leaves the demo without it.

@@ -69,6 +69,7 @@ function createEmptyDraft(): EditorDraft {
     generatedCase: null,
     driftAcknowledged: false,
     changeRequests: [],
+    sourceAlerts: [],
     approved: false,
     completed: false,
     reviewStatus: "none",

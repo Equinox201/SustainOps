@@ -1,4 +1,4 @@
-import { and, asc, cosineDistance, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, cosineDistance, eq, inArray, sql } from "drizzle-orm";
 import type {
   RetrievalCandidate,
   RetrievalDecision,
@@ -6,7 +6,7 @@ import type {
   SustainabilityCaseInput,
   SourceRef,
 } from "@/lib/types";
-import type { ParsedDocument } from "@/lib/knowledge/parse";
+import { documentKeyFor, type ParsedDocument } from "@/lib/knowledge/parse";
 import { schema, type Database } from "./db";
 import type { Embedder } from "./embeddings";
 
@@ -76,6 +76,10 @@ export async function ingestDocuments(
         region: document.region,
         version: document.version,
         status: document.status,
+        documentKey: documentKeyFor(document.slug),
+        origin: "corpus" as const,
+        seedStatus: document.status,
+        indexStatus: document.status === "draft" ? null : "available",
         contentHash: document.contentHash,
         updatedAt: new Date(),
       };
@@ -117,46 +121,6 @@ export async function ingestDocuments(
   }
 
   return summary;
-}
-
-export type KnowledgeDocumentSummary = {
-  id: string;
-  slug: string;
-  title: string;
-  department: string;
-  documentType: string;
-  region: string;
-  version: number;
-  status: string;
-  chunkCount: number;
-};
-
-export async function listKnowledgeDocuments(
-  db: Database,
-): Promise<KnowledgeDocumentSummary[]> {
-  const rows = await db
-    .select({
-      id: knowledgeDocuments.id,
-      slug: knowledgeDocuments.slug,
-      title: knowledgeDocuments.title,
-      department: knowledgeDocuments.department,
-      documentType: knowledgeDocuments.documentType,
-      region: knowledgeDocuments.region,
-      version: knowledgeDocuments.version,
-      status: knowledgeDocuments.status,
-      chunkCount: sql<number>`count(${knowledgeChunks.id})::int`,
-    })
-    .from(knowledgeDocuments)
-    .leftJoin(knowledgeChunks, eq(knowledgeChunks.documentId, knowledgeDocuments.id))
-    .groupBy(knowledgeDocuments.id)
-    .orderBy(
-      asc(sql`case ${knowledgeDocuments.status} when 'approved' then 0 else 1 end`),
-      asc(knowledgeDocuments.department),
-      asc(knowledgeDocuments.title),
-      desc(knowledgeDocuments.version),
-    );
-
-  return rows;
 }
 
 export type RetrievalResult = {

@@ -224,6 +224,19 @@ export const changeResponseSchema = z.strictObject({
   response: requiredText(LIMITS.changeResponse),
 });
 
+/**
+ * A document this plan was generated from has since been superseded or
+ * withdrawn. Derived on read from the knowledge base, never stored.
+ */
+export const sourceAlertSchema = z.strictObject({
+  documentId: z.string(),
+  documentTitle: z.string(),
+  citedVersion: z.number().int(),
+  status: z.enum(["superseded", "withdrawn"]),
+  /** The approved version that now applies, if there is one. */
+  currentVersion: z.number().int().nullable(),
+});
+
 export const transitionRequestSchema = z.strictObject({
   event: z.enum([
     "approve",
@@ -271,6 +284,7 @@ export type ChangeRequest = z.infer<typeof changeRequestSchema>;
 export type Evidence = z.infer<typeof evidenceSchema>;
 export type CaseDrift = "none" | "drifted" | "acknowledged";
 export type ChangeResponse = z.infer<typeof changeResponseSchema>;
+export type SourceAlert = z.infer<typeof sourceAlertSchema>;
 export type PlanContent = z.infer<typeof planContentSchema>;
 export type Priority = (typeof PRIORITIES)[number];
 export type ActorRef = z.infer<typeof actorRefSchema>;
@@ -287,6 +301,7 @@ export const storedActionPlanSchema = planContentSchema.extend({
   /** The AI's output as first saved (or last regenerated). Never edited. */
   originalAiOutput: aiActionPlanSchema.nullable(),
   changeRequests: z.array(changeRequestSchema),
+  sourceAlerts: z.array(sourceAlertSchema),
   /**
    * The case exactly as the AI saw it. Comparing it with the plan's current
    * case shows whether the plan has gone stale; null for plans that were not

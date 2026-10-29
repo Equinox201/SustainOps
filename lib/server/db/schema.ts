@@ -310,6 +310,25 @@ export const knowledgeDocuments = pgTable(
     region: text("region").notNull(),
     version: integer("version").notNull(),
     status: text("status").notNull(),
+    // Versions of one document share a key; (key, version) is unique.
+    documentKey: text("document_key").notNull(),
+    // "corpus" documents ship with the repo; "user" ones are created in the app
+    // and removed by the nightly reset.
+    origin: text("origin").notNull().default("corpus"),
+    // The status a corpus document is restored to by the nightly reset.
+    seedStatus: text("seed_status"),
+    // Indexing (embedding) state; null for drafts, which have no sections yet.
+    indexStatus: text("index_status"),
+    indexError: text("index_error"),
+    // The text a draft is written in. Published versions are immutable.
+    sourceMarkdown: text("source_markdown"),
+    createdBy: text("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    approvedBy: text("approved_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
     contentHash: text("content_hash").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -325,7 +344,19 @@ export const knowledgeDocuments = pgTable(
     ),
     check(
       "knowledge_documents_status_check",
-      sql`${table.status} in ('approved', 'draft', 'superseded')`,
+      sql`${table.status} in ('approved', 'draft', 'superseded', 'withdrawn')`,
+    ),
+    check(
+      "knowledge_documents_origin_check",
+      sql`${table.origin} in ('corpus', 'user')`,
+    ),
+    check(
+      "knowledge_documents_index_status_check",
+      sql`${table.indexStatus} is null or ${table.indexStatus} in ('processing', 'available', 'failed')`,
+    ),
+    uniqueIndex("knowledge_documents_key_version_idx").on(
+      table.documentKey,
+      table.version,
     ),
   ],
 ).enableRLS();

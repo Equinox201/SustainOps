@@ -28,20 +28,40 @@ const demoResponse = z.object({
 });
 const eventsResponse = z.object({ events: z.array(auditEventSchema) });
 const okResponse = z.object({ ok: z.literal(true) });
+const knowledgeDocumentSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  documentKey: z.string(),
+  title: z.string(),
+  department: z.string(),
+  documentType: z.string(),
+  region: z.string(),
+  version: z.number(),
+  status: z.string(),
+  indexStatus: z.string().nullable(),
+  indexError: z.string().nullable(),
+  origin: z.string(),
+  chunkCount: z.number(),
+  createdBy: z.object({ id: z.string(), name: z.string() }).nullable(),
+  approvedBy: z.object({ id: z.string(), name: z.string() }).nullable(),
+  approvedAt: z.string().nullable(),
+});
+const knowledgeSectionSchema = z.object({
+  sectionRef: z.string(),
+  heading: z.string(),
+  content: z.string(),
+});
 const knowledgeResponse = z.object({
-  documents: z.array(
-    z.object({
-      id: z.string(),
-      slug: z.string(),
-      title: z.string(),
-      department: z.string(),
-      documentType: z.string(),
-      region: z.string(),
-      version: z.number(),
-      status: z.string(),
-      chunkCount: z.number(),
-    }),
-  ),
+  documents: z.array(knowledgeDocumentSchema),
+});
+const knowledgeDetailResponse = z.object({
+  document: knowledgeDocumentSchema,
+  sections: z.array(knowledgeSectionSchema),
+  markdown: z.string().nullable(),
+});
+const knowledgePreviewResponse = z.object({
+  version: z.number(),
+  sections: z.array(knowledgeSectionSchema),
 });
 
 export type GenerationOutcome = z.infer<typeof generationResponseSchema>;
@@ -295,5 +315,67 @@ const retrievalResponse = z.object({
 export async function fetchRetrieval(id: string) {
   return apiRequest(`/api/action-plans/${encodeURIComponent(id)}/retrieval`, {
     schema: retrievalResponse,
+  });
+}
+
+// ---- knowledge lifecycle --------------------------------------------------
+
+export type KnowledgeDraftBody = {
+  documentKey?: string;
+  title: string;
+  department: string;
+  documentType: string;
+  body: string;
+};
+
+export function fetchKnowledgeDocument(id: string) {
+  return apiRequest(`/api/knowledge/${encodeURIComponent(id)}`, {
+    schema: knowledgeDetailResponse,
+  });
+}
+
+export function previewKnowledgeDraft(draft: KnowledgeDraftBody) {
+  return apiRequest("/api/knowledge/preview", {
+    method: "POST",
+    body: draft,
+    schema: knowledgePreviewResponse,
+  });
+}
+
+export function saveKnowledgeDraft(draft: KnowledgeDraftBody) {
+  return apiRequest("/api/knowledge", {
+    method: "POST",
+    body: draft,
+    schema: knowledgeDetailResponse,
+  });
+}
+
+export function updateKnowledgeDraft(id: string, draft: KnowledgeDraftBody) {
+  return apiRequest(`/api/knowledge/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: draft,
+    schema: knowledgeDetailResponse,
+  });
+}
+
+export function deleteKnowledgeDraft(id: string) {
+  return apiRequest(`/api/knowledge/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    schema: okResponse,
+  });
+}
+
+export function publishKnowledgeDocument(id: string) {
+  return apiRequest(`/api/knowledge/${encodeURIComponent(id)}/publish`, {
+    method: "POST",
+    schema: knowledgeDetailResponse,
+  });
+}
+
+export function withdrawKnowledgeDocument(id: string, reason: string) {
+  return apiRequest(`/api/knowledge/${encodeURIComponent(id)}/withdraw`, {
+    method: "POST",
+    body: { reason },
+    schema: knowledgeDetailResponse,
   });
 }

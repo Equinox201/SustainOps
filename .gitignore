@@ -47,6 +47,7 @@ next-env.d.ts
 /blob-report/
 /playwright/.cache/
 
-# eval runs: only the published report is committed
+# eval runs: only the published reports are committed (the /evals page reads them at build time)
 /evals/results/*.json
 !/evals/results/latest.json
+!/evals/results/counterfactual.json

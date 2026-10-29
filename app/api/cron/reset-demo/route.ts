@@ -1,8 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { ApiError, json, withApi } from "@/lib/server/api";
-import { replaceDemoPlans } from "@/lib/server/action-plan-repo";
 import { getDb } from "@/lib/server/db";
-import { buildGroundedDemoPlans } from "@/lib/server/demo-seed";
+import { resetDemoData } from "@/lib/server/demo-reset";
 import { getEnv } from "@/lib/server/env";
 
 function sameSecret(supplied: string, expected: string) {
@@ -35,7 +34,7 @@ export const GET = withApi(async (request, { requestId }) => {
   }
 
   const db = getDb();
-  const result = await replaceDemoPlans(db, await buildGroundedDemoPlans(db), {
+  const result = await resetDemoData(db, {
     requestId,
     actorUserId: null,
     trigger: "scheduled",

@@ -4,6 +4,7 @@ import latest from "@/evals/results/latest.json";
 import { CATEGORY_LABELS } from "@/lib/evals/categories";
 import type { EvalReport } from "@/lib/evals/report";
 import type { Proportion } from "@/lib/evals/types";
+import { Counterfactual } from "./Counterfactual";
 
 export const metadata: Metadata = {
   title: "Evaluation results — SustainOps",
@@ -414,12 +415,15 @@ export default function EvalsPage() {
           </div>
         </section>
 
+        <Counterfactual />
+
         <section className="text-sm leading-6 text-stone-600">
           <h2 className="text-lg font-semibold text-stone-950">Reproduce</h2>
           <pre className="mt-3 overflow-x-auto rounded-lg border border-stone-200 bg-white p-4 text-xs leading-6 text-stone-800">
 {`npm run evals -- --mode retrieval --embedder hash        # free, offline
 npm run evals -- --mode retrieval --embedder openai      # embeddings only
-npm run evals -- --mode full --embedder openai --judge   # full pipeline`}
+npm run evals -- --mode full --embedder openai --judge   # full pipeline
+npm run evals:counterfactual -- --runs 3                 # one case, three policies`}
           </pre>
           <p className="mt-3">
             The benchmark lives in <code>evals/cases.ts</code>; methodology and

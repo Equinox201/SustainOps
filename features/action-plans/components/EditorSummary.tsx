@@ -4,6 +4,7 @@ import { getPlanTitle } from "../domain/plan-utils";
 import type { EditorDraft } from "../types";
 import { primaryButtonClassName } from "./form-styles";
 import { DriftNotice } from "./DriftNotice";
+import { SourceChangeNotice } from "./SourceChangeNotice";
 import { LockedNotice } from "./LockedNotice";
 import { PlanStateBadges } from "./PlanStateBadges";
 import { ReviewPanel } from "./ReviewPanel";
@@ -81,6 +82,8 @@ export function EditorSummary({
       </p>
 
       {draft.approved ? <LockedNotice /> : null}
+
+      <SourceChangeNotice alerts={draft.sourceAlerts} approved={draft.approved} />
 
       <DriftNotice
         draft={draft}

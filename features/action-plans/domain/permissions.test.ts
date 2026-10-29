@@ -127,3 +127,14 @@ describe("permissionsForContentChange", () => {
     ).toEqual(["plan:track"]);
   });
 });
+
+describe("knowledge permissions", () => {
+  it("separates writing a document from publishing it", () => {
+    expect(hasPermission("sustainability_manager", "knowledge:edit")).toBe(true);
+    expect(hasPermission("sustainability_manager", "knowledge:publish")).toBe(false);
+    expect(hasPermission("reviewer", "knowledge:publish")).toBe(true);
+    expect(hasPermission("reviewer", "knowledge:edit")).toBe(false);
+    expect(hasPermission("department_manager", "knowledge:edit")).toBe(false);
+    expect(hasPermission("department_manager", "knowledge:publish")).toBe(false);
+  });
+});

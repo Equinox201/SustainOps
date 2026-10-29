@@ -1,18 +1,25 @@
+import type { SessionUser } from "@/lib/schemas/action-plan";
 import type { AuditEvent, StoredActionPlan } from "@/lib/types";
 import { useKnowledgeDocuments } from "../hooks/useKnowledgeDocuments";
 import { AdoptionSignals } from "./AdoptionSignals";
+import { AffectedPlans } from "./AffectedPlans";
 import { KnowledgeSourcesPanel } from "./KnowledgeSourcesPanel";
 
 export function InsightsView({
+  user,
+  onKnowledgeChanged,
   plans,
   auditEvents,
   auditLoading,
 }: {
+  user: SessionUser;
+  /** Plans carry alerts derived from the knowledge base; reload them. */
+  onKnowledgeChanged: () => void;
   plans: StoredActionPlan[];
   auditEvents: AuditEvent[];
   auditLoading: boolean;
 }) {
-  const { documents, error, isLoading } = useKnowledgeDocuments(true);
+  const { documents, error, isLoading, reload } = useKnowledgeDocuments(true);
   const hasNoSignals =
     !auditLoading && plans.length === 0 && auditEvents.length === 0;
 
@@ -42,10 +49,16 @@ export function InsightsView({
         auditEvents={auditEvents}
         isLoading={auditLoading}
       />
+      <AffectedPlans plans={plans} />
       <KnowledgeSourcesPanel
+        user={user}
         documents={documents}
         error={error}
         isLoading={isLoading}
+        onChanged={() => {
+          reload();
+          onKnowledgeChanged();
+        }}
       />
     </section>
   );

@@ -6,11 +6,8 @@ import { parseKnowledgeDocument } from "@/lib/knowledge/parse";
 import type { SustainabilityCaseInput } from "@/lib/types";
 import type { Database } from "./db";
 import { defaultMinScore, hashEmbedder } from "./embeddings";
-import {
-  ingestDocuments,
-  listKnowledgeDocuments,
-  retrieveSources,
-} from "./knowledge";
+import { ingestDocuments, retrieveSources } from "./knowledge";
+import { listKnowledge } from "./knowledge-admin";
 import { createTestDb } from "./test-db";
 
 let db: Database;
@@ -53,7 +50,7 @@ beforeAll(async () => {
 
 describe("ingestion", () => {
   it("stores every document and section", async () => {
-    const documents = await listKnowledgeDocuments(db);
+    const documents = await listKnowledge(db);
 
     expect(documents.length).toBe(loadCorpus().length);
     expect(documents.every((document) => document.chunkCount > 0)).toBe(true);

@@ -9,7 +9,20 @@ import { z } from "zod";
  * the exact clause it relies on.
  */
 
-export const DOCUMENT_STATUSES = ["approved", "draft", "superseded"] as const;
+export const DOCUMENT_STATUSES = [
+  "approved",
+  "draft",
+  "superseded",
+  "withdrawn",
+] as const;
+
+/**
+ * The key shared by every version of one document. Corpus files that predate
+ * explicit keys mark an older version with a "-vN" suffix on the slug.
+ */
+export function documentKeyFor(slug: string): string {
+  return slug.replace(/-v\d+$/, "");
+}
 
 const frontMatterSchema = z.object({
   title: z.string().min(1),

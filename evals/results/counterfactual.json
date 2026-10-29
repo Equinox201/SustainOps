@@ -1,0 +1,283 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "generatedAt": "2026-10-19T07:16:02.682Z",
+    "generationModel": "gpt-5-mini",
+    "judgeModel": "gpt-5-mini",
+    "embedder": "text-embedding-3-small",
+    "promptVersion": "action-plan-v5-untrusted-sources",
+    "runsPerCondition": 3,
+    "gitSha": "412856a"
+  },
+  "case": {
+    "property": "Harbour House Singapore",
+    "department": "Engineering",
+    "issue": "Forecast occupancy is very low; should unused floors be consolidated and set back now?",
+    "currentMetric": "Occupancy is forecast at 38 percent for the next four nights, and every floor is still air-conditioned",
+    "targetMetric": "Reduce kilowatt-hours per occupied room over the next two weeks without guest complaints",
+    "operationalContext": "Front Office currently assigns rooms across all floors. Engineering is asking whether to start consolidating rooms onto fewer floors now, or to wait."
+  },
+  "change": {
+    "document": "Energy and HVAC Operations SOP §2.2",
+    "before": "below 45 percent for three or more consecutive nights",
+    "after": "below 30 percent for five or more consecutive nights"
+  },
+  "conditions": [
+    {
+      "id": "current",
+      "label": "Current policy (Energy SOP v2)",
+      "description": "Consolidate when occupancy is below 45 percent for three or more consecutive nights.",
+      "runs": [
+        {
+          "ok": true,
+          "grounding": "grounded",
+          "decision": "consolidate_now",
+          "figuresInVerifiedQuotes": [
+            "45%"
+          ],
+          "verifiedQuotes": [
+            "When forecast occupancy is below 45 percent for three or more consecutive\nnights, Front Office assigns rooms by floor where guest preferences allow, so\nthat Engineering can place unused floors in reduced mode.",
+            "A daily check-in\nbetween Front Office and Engineering confirms eligible floors.",
+            "A zone can be moved to reduced mode only\nwhen all rooms in it are vacant, not blocked for maintenance recovery, and not\npre-assigned.",
+            "Vacant rooms are set back to a maximum of 26 degrees Celsius, and returned to\nguest set-point before arrival. Reduced-mode floors use the same limit.",
+            "Any guest comfort complaint on a consolidated floor is escalated to the duty\nengineer immediately and the room is returned to normal operation."
+          ],
+          "citedDocuments": [
+            "Energy and HVAC Operations SOP v2"
+          ],
+          "policyClaims": 5,
+          "policyClaimsVerified": 5,
+          "actions": [
+            "When forecast occupancy is below 45% for three or more consecutive nights, instruct Front Office to assign rooms by floor where guest preferences allow so Engineering can place unused floors in reduced mode; initiate consolidation now since the forecast is 38% for the next four nights.",
+            "Confirm eligible floors via the daily Front Office–Engineering check-in before any floor is moved to reduced mode.",
+            "Only move a zone (floor) to reduced mode after verifying that all rooms in that zone are vacant, not blocked for maintenance recovery, and not pre-assigned.",
+            "Set vacant rooms and reduced-mode floors to the vacant-room setback and return rooms to the guest set-point before arrival; apply the same temperature limit to reduced-mode floors.",
+            "Exclude suites, accessible rooms and rooms with guest-specific requests from consolidation unless the guest agrees; escalate any guest comfort complaint on a consolidated floor immediately and return the room to normal operation."
+          ]
+        },
+        {
+          "ok": true,
+          "grounding": "grounded",
+          "decision": "consolidate_now",
+          "figuresInVerifiedQuotes": [
+            "45%"
+          ],
+          "verifiedQuotes": [
+            "When forecast occupancy is below 45 percent for three or more consecutive\nnights, Front Office assigns rooms by floor where guest preferences allow, so\nthat Engineering can place unused floors in reduced mode.",
+            "A zone can be moved to reduced mode only\nwhen all rooms in it are vacant, not blocked for maintenance recovery, and not\npre-assigned.",
+            "Suites, accessible rooms and rooms with guest-specific requests are excluded\nfrom consolidation unless the guest agrees.",
+            "Vacant rooms are set back to a maximum of 26 degrees Celsius, and returned to\nguest set-point before arrival.",
+            "Report kilowatt-hours per occupied room per night, by floor where\nsub-metering exists, and compare to the previous 8-week baseline."
+          ],
+          "citedDocuments": [
+            "Energy and HVAC Operations SOP v2"
+          ],
+          "policyClaims": 5,
+          "policyClaimsVerified": 5,
+          "actions": [
+            "Start floor consolidation now because the forecast meets the SOP condition; instruct Front Office to assign rooms by floor where guest preferences allow so Engineering can place unused floors in reduced mode.",
+            "Before moving any zone to reduced mode, confirm the zone is fully eligible: all rooms vacant, not blocked for maintenance recovery, and not pre-assigned.",
+            "Exclude suites, accessible rooms and rooms with guest-specific requests from consolidation unless the guest agrees; compile and lock this exception list before consolidation starts.",
+            "Apply vacant-room setback and reduced-floor limit and ensure rooms are returned to guest set-point before arrival; prepare an immediate escalation path so any comfort complaint triggers restoration to normal operation.",
+            "Hold a daily Front Office–Engineering check-in to confirm eligible floors and report energy intensity: record kilowatt-hours per occupied room per night by floor (where sub-metering exists) and compare to the previous 8-week baseline."
+          ]
+        },
+        {
+          "ok": true,
+          "grounding": "grounded",
+          "decision": "consolidate_now",
+          "figuresInVerifiedQuotes": [
+            "45%"
+          ],
+          "verifiedQuotes": [
+            "When forecast occupancy is below 45 percent for three or more consecutive\nnights, Front Office assigns rooms by floor where guest preferences allow, so\nthat Engineering can place unused floors in reduced mode.",
+            "A zone can be moved to reduced mode only\nwhen all rooms in it are vacant, not blocked for maintenance recovery, and not\npre-assigned.",
+            "Suites, accessible rooms and rooms with guest-specific requests are excluded\nfrom consolidation unless the guest agrees.",
+            "Vacant rooms are set back to a maximum of 26 degrees Celsius, and returned to\nguest set-point before arrival. Reduced-mode floors use the same limit.",
+            "Any guest comfort complaint on a consolidated floor is escalated to the duty\nengineer immediately and the room is returned to normal operation."
+          ],
+          "citedDocuments": [
+            "Energy and HVAC Operations SOP v2"
+          ],
+          "policyClaims": 5,
+          "policyClaimsVerified": 5,
+          "actions": [
+            "Request Front Office to assign rooms by floor (where guest preferences allow) so Engineering can place unused floors into reduced mode starting tonight, given the multi-night low forecast.",
+            "Before moving any zone to reduced mode, conduct a floor eligibility check: confirm every room in the zone is vacant, not blocked for maintenance recovery, and not pre-assigned.",
+            "Flag and exclude suites, accessible rooms, and any rooms with guest-specific requests from consolidation unless the guest agrees; update FO room assignment to keep these rooms available.",
+            "Implement vacant-room and reduced-floor HVAC setback immediately: set to the approved maximum setback and ensure rooms/floors are returned to guest set-point before arrival.",
+            "If any guest comfort complaint is reported on a consolidated floor, escalate immediately to the duty engineer and return the affected room to normal operation without delay."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "updated",
+      "label": "Updated policy (Energy SOP v3)",
+      "description": "Identical to v2 except: consolidate when occupancy is below 30 percent for five or more consecutive nights.",
+      "runs": [
+        {
+          "ok": true,
+          "grounding": "grounded",
+          "decision": "hold_off",
+          "figuresInVerifiedQuotes": [
+            "30%"
+          ],
+          "verifiedQuotes": [
+            "When forecast occupancy is below 30 percent for five or more consecutive nights, Front Office assigns rooms by floor where guest preferences allow, so\nthat Engineering can place unused floors in reduced mode.",
+            "A daily check-in\nbetween Front Office and Engineering confirms eligible floors.",
+            "A zone can be moved to reduced mode only\nwhen all rooms in it are vacant, not blocked for maintenance recovery, and not\npre-assigned.",
+            "Vacant rooms are set back to a maximum of 26 degrees Celsius, and returned to\nguest set-point before arrival. Reduced-mode floors use the same limit."
+          ],
+          "citedDocuments": [
+            "Energy and HVAC Operations SOP v3"
+          ],
+          "policyClaims": 4,
+          "policyClaimsVerified": 4,
+          "actions": [
+            "Do not start floor consolidation now; start consolidation only when the Energy SOP trigger is met (forecast occupancy below 30% for five or more consecutive nights) and Front Office assigns rooms by floor to enable unused floors to be reduced.",
+            "Institute a daily Front Office–Engineering check-in (documented) to confirm which floors are eligible for reduced mode before any floor consolidation is actioned.",
+            "When consolidation is authorised, move floors (zones) to reduced mode only if the zone meets zoning rules and exclusion checks: verify all rooms in the zone are vacant, not blocked for maintenance recovery, and not pre-assigned; also exclude suites, accessible rooms and guest-specific-request rooms unless guest agrees.",
+            "Apply vacant-room and reduced-floor HVAC limits and comfort safeguards: set back vacant rooms and reduced-mode floors to the maximum limit and return rooms to guest set-point before arrival; escalate any guest comfort complaint on a consolidated floor immediately to the duty engineer and return the room to normal operation.",
+            "Prepare monitoring and a short pilot plan now: map sub-metered floors, record current kWh per occupied room by floor against the 8-week baseline, pre-identify candidate floors for consolidation, and prepare guest-communication templates so consolidation can be implemented quickly if/when the SOP trigger is reached."
+          ]
+        },
+        {
+          "ok": true,
+          "grounding": "grounded",
+          "decision": "hold_off",
+          "figuresInVerifiedQuotes": [
+            "30%"
+          ],
+          "verifiedQuotes": [
+            "When forecast occupancy is below 30 percent for five or more consecutive nights, Front Office assigns rooms by floor where guest preferences allow, so\nthat Engineering can place unused floors in reduced mode.",
+            "A daily check-in\nbetween Front Office and Engineering confirms eligible floors.",
+            "A zone can be moved to reduced mode only\nwhen all rooms in it are vacant, not blocked for maintenance recovery, and not\npre-assigned.",
+            "Vacant rooms are set back to a maximum of 26 degrees Celsius, and returned to\nguest set-point before arrival. Reduced-mode floors use the same limit.",
+            "Report kilowatt-hours per occupied room per night, by floor where\nsub-metering exists, and compare to the previous 8-week baseline."
+          ],
+          "citedDocuments": [
+            "Energy and HVAC Operations SOP v3"
+          ],
+          "policyClaims": 5,
+          "policyClaimsVerified": 5,
+          "actions": [
+            "Do not start hotel-wide floor consolidation now because policy requires a lower forecast and duration before Front Office should assign by floor for engineering to place unused floors in reduced mode.",
+            "Begin (or confirm) a daily check-in between Front Office and Engineering to re-assess floor- consolidation eligibility each morning and record decisions.",
+            "Only move a guest floor (zone) to reduced mode when the zone meets zoning requirements: all rooms in the zone are vacant, not blocked for maintenance recovery, and not pre-assigned.",
+            "When rooms or floors are placed in reduced mode, apply the vacant-room setback limit and restore set-point before any arrival.",
+            "Monitor energy intensity and guest impacts: report kilowatt-hours per occupied room per night by floor (where sub-metering exists) and compare to the previous 8-week baseline; immediately escalate any guest comfort complaint on a consolidated floor to the duty engineer and return the room to normal operation."
+          ]
+        },
+        {
+          "ok": true,
+          "grounding": "grounded",
+          "decision": "hold_off",
+          "figuresInVerifiedQuotes": [
+            "30%"
+          ],
+          "verifiedQuotes": [
+            "When forecast occupancy is below 30 percent for five or more consecutive nights, Front Office assigns rooms by floor where guest preferences allow, so\nthat Engineering can place unused floors in reduced mode.",
+            "A daily check-in\nbetween Front Office and Engineering confirms eligible floors.",
+            "A zone can be moved to reduced mode only\nwhen all rooms in it are vacant, not blocked for maintenance recovery, and not\npre-assigned.",
+            "Report kilowatt-hours per occupied room per night, by floor where\nsub-metering exists, and compare to the previous 8-week baseline."
+          ],
+          "citedDocuments": [
+            "Energy and HVAC Operations SOP v3"
+          ],
+          "policyClaims": 4,
+          "policyClaimsVerified": 4,
+          "actions": [
+            "Do not begin floor consolidation now. Only consolidate when the SOP trigger is met.",
+            "Start a daily check-in (Front Office + Engineering) immediately to confirm eligible floors each day and to prepare for consolidation if the trigger is met.",
+            "Prepare a consolidation readiness plan (proposal) covering: temporary room-assignment rules to encourage floor vacancy when allowed by guest preference, a guest-communication script for any pre-assigned changes or opt-outs, a maintenance-check sweep list for candidate floors, and staffing impacts.",
+            "When moving a zone to reduced mode, ensure zoning rules are met (all rooms in the zone are vacant, not blocked for maintenance recovery, and not pre-assigned); do not consolidate zones that still contain excluded room categories or pre-assigned guests.",
+            "Track energy intensity and guest impacts: report kilowatt-hours per occupied room per night by floor (where sub-metering exists) and compare to the previous 8-week baseline to confirm savings and detect anomalies."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "none",
+      "label": "No policy",
+      "description": "No Energy SOP is approved, so nothing states a threshold.",
+      "runs": [
+        {
+          "ok": true,
+          "grounding": "partial",
+          "decision": "consolidate_now",
+          "figuresInVerifiedQuotes": [
+            "3%"
+          ],
+          "verifiedQuotes": [
+            "Reduce electricity use per occupied room by 3 percent per year against the\nprior year's baseline, adjusted for occupancy."
+          ],
+          "citedDocuments": [
+            "Group Sustainability Policy v3"
+          ],
+          "policyClaims": 1,
+          "policyClaimsVerified": 1,
+          "actions": [
+            "Align short-term consolidation and set-back measures with Group Sustainability Policy: prioritise actions that reduce electricity use per occupied room when planning closures.",
+            "Begin staged floor consolidation in coordination with Front Office: identify 1–2 contiguous floors to keep active, stop assigning new arrivals to target closure floors, move guests only at natural churn (no involuntary immediate relocations), and manage check-ins to active floors.",
+            "Validate HVAC and services before full floor shutdown: confirm AHU/zone isolation, chilled-water/economiser settings, corridor lighting circuits, and fire/egress/communication requirements. Implement stepped set-back on candidate floors (raise setpoint, reduce corridor cooling/lighting) and only power off systems once isolation is confirmed.",
+            "Institute daily monitoring and rollback rules: each morning review occupancy, kWh per occupied room, and guest comfort complaints; reverse consolidation if complaints increase or if operational risks are identified. Record energy and comfort metrics for the four-night period and compare to baseline."
+          ]
+        },
+        {
+          "ok": true,
+          "grounding": "partial",
+          "decision": "consolidate_now",
+          "figuresInVerifiedQuotes": [
+            "3%"
+          ],
+          "verifiedQuotes": [
+            "Reduce electricity use per occupied room by 3 percent per year against the\nprior year's baseline, adjusted for occupancy."
+          ],
+          "citedDocuments": [
+            "Group Sustainability Policy v3"
+          ],
+          "policyClaims": 1,
+          "policyClaimsVerified": 1,
+          "actions": [
+            "Align short-term operations with the Group energy objective by prioritising reductions in electricity use per occupied room while protecting guest satisfaction.",
+            "Run a 2–4 night pilot consolidation now: select 1–2 contiguous floors to be taken out of active assignment, stop assigning rooms on those floors, and house new arrivals on the remaining active floors. Limit guest moves to avoid complaints; only move guests with consent.",
+            "When a floor is confirmed empty for the pilot, implement energy-saving steps on that floor: set HVAC to a conservative setback/minimum safe operating level, switch non-essential corridor and back-of-house lighting to reduced schedules or controls, and secure access to prevent accidental use.",
+            "Coordinate Front Office, Housekeeping and Engineering before and during consolidation: FO to stop assigning closed-floor rooms and handle guest communication; Housekeeping to hold cleaning on closed floors and flag rooms for reopening; Engineering to perform pre- and post-checks on AHUs and safety systems before set-back and when returning floors to service.",
+            "Monitor energy and guest impact daily during the pilot and be prepared to revert: track kWh per occupied room, guest complaints related to room moves or comfort, and any operational issues; restore floors immediately if guest experience or safety is affected."
+          ]
+        },
+        {
+          "ok": true,
+          "grounding": "partial",
+          "decision": "consolidate_now",
+          "figuresInVerifiedQuotes": [
+            "3%"
+          ],
+          "verifiedQuotes": [
+            "Reduce electricity use per occupied room by 3 percent per year against the\nprior year's baseline, adjusted for occupancy."
+          ],
+          "citedDocuments": [
+            "Group Sustainability Policy v3"
+          ],
+          "policyClaims": 1,
+          "policyClaimsVerified": 1,
+          "actions": [
+            "Treat electricity reduction per occupied room as an operational requirement and include it in short-term planning for low-occupancy periods.",
+            "Coordinate immediately with Front Office to concentrate new arrivals and hold checkouts to a limited set of contiguous floors; do not move checked-in guests unless requested and approved by guest services.",
+            "Engineering to stage HVAC for partial-floor operation: prepare selected floors for reduced cooling (raise setpoints on unoccupied floors, disable non-essential fan coils/VAVs where system design allows) and confirm that fire, smoke, and essential ventilation systems remain fully operational.",
+            "Operationalize closed floors: update housekeeping schedules to skip closed floors, place clear signage and access controls, maintain security patrols, and ensure emergency egress and safety systems are verified before reducing services.",
+            "If Front Office cannot immediately concentrate arrivals, stage consolidation over 48–72 hours: identify candidate floors, pilot closure for one night, validate guest comfort and kWh impact, then scale."
+          ]
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "One case, 3 runs per condition. Generation is non-deterministic, so read the counts as a pattern, not a rate with a confidence interval.",
+    "The updated policy is a one-sentence change I wrote to the shipped SOP, made through the same draft, review and publish steps a user would take. It is a controlled demonstration, not evidence about real policy changes.",
+    "The decision is classified by a model that reads only the case and the plan (never the policy). It is the same model family that wrote the plan.",
+    "The verified-quotation figures come from the server's own check, so they show what the plan can prove it relied on, independent of the classifier.",
+    "The corpus is synthetic."
+  ]
+}
