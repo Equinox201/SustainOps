@@ -12,18 +12,35 @@ energy use into a structured action plan that is reviewed by a person, approved,
 tracked against KPIs, and closed out.
 
 **Live demo:** <https://sustainops.vercel.app> (sign in as any persona; data is
-fictional and resets nightly) · **Evaluation results:** <https://sustainops.vercel.app/evals>
+fictional and reset nightly) · **Evaluation results:** <https://sustainops.vercel.app/evals>
 
 > All properties, policies and data in this project are fictional. It originated
-> as a take-home prototype and was rebuilt as a generic, standalone product.
+> as a prototype I built for a hotel company as part of a job interview, and was rebuilt as a generic, standalone
+> product with no company data or branding.
 
-## Problem
+## B1 Builders submission
 
-Sustainability goals are broad; operations are specific. Hotel teams need to turn
-"reduce food waste" into department-level actions with an owner, a date, a staff
-message and a measurable KPI, and they need a record of who approved what.
+SustainOps is the organisation-scale project in my 42 Singapore B1 Builders submission: several roles,
+server-enforced permissions, an audit trail, a knowledge base with its own lifecycle, and a published
+evaluation. The individual-user project is [TimeTracker42](https://github.com/Equinox201/TimeTracker42).
 
-## Solution
+- [Source repository](https://github.com/Equinox201/SustainOps) (public)
+- [Live demo](https://sustainops.vercel.app)
+- [Published evaluation results](https://sustainops.vercel.app/evals)
+- [AI-assisted development record](docs/ai-dev/README.md)
+- Project walkthrough video: TODO(Nicolas)
+
+## Overview
+
+### Problem
+
+- **Who is affected:** the sustainability and department managers at a hotel property who have to turn goals into
+  actions, and the reviewers who have to approve them and trust what the plan says.
+- **What the issue is:** sustainability goals are broad; operations are specific. Hotel teams need to turn
+  "reduce food waste" into department-level actions with an owner, a date, a staff message and a measurable KPI,
+  and they need a record of who approved what.
+
+### Solution
 
 A governed workflow rather than a chatbot:
 
@@ -33,6 +50,29 @@ A governed workflow rather than a chatbot:
 4. Assign an owner and dates and complete the readiness checklist.
 5. Approve. The plan is locked to protect the reviewed record.
 6. Track action progress, add notes and KPI progress, then mark the plan done.
+
+### Outcome
+
+SustainOps is built, deployed and evaluated. What was achieved, measured (details and limits in
+[Evaluation](#evaluation) and at [`/evals`](https://sustainops.vercel.app/evals)):
+
+- A working multi-role web application with server-enforced permissions, an audit trail, versioned plans and a
+  knowledge base with its own approval lifecycle, deployed on Vercel.
+- On the 24-case benchmark every case passes every hard check, no recommendation cites a source the model was never
+  given (0 of 110), and every quotation the model labelled as a policy requirement was found in its cited source
+  (82 of 82).
+- The honest limit: an LLM judge rated only 56 of 95 cited actions as **fully** supported by what they cite, so a
+  human review step stays in the workflow.
+- 267 unit, repository and API tests and 18 end-to-end browser tests; CI runs them on every pull request.
+
+## Demo
+
+The walkthrough below follows one plan from start to finish; the screenshots are captured from the seeded, fictional demo plans (see [`assets/screenshots/`](assets/screenshots/README.md)). To try it yourself, open the [live demo](https://sustainops.vercel.app), sign in as **Maya Chen** and choose **Load Demo Cases**. Video: TODO(Nicolas).
+
+| Overview | Evidence behind each action | Review loop |
+| --- | --- | --- |
+| [![The operational overview and a plan card](assets/screenshots/01-overview.png)](assets/screenshots/01-overview.png) | [![Actions labelled as policy requirement or proposal, with a verified quotation highlighted in its source and a downgraded claim explained](assets/screenshots/02-evidence.png)](assets/screenshots/02-evidence.png) | [![A reviewer's change request with the author's response, before resubmitting](assets/screenshots/03-review-change-request.png)](assets/screenshots/03-review-change-request.png) |
+| The manager's view: plan counts, filters and each plan's status. | A policy requirement is kept only if the server found its quotation in the cited source (highlighted); an unverifiable one becomes a proposal, with the reason. | A change request stays open until the author answers it and resubmits; editing alone does not clear it. |
 
 ## Roles and governance
 
@@ -67,10 +107,11 @@ and enforced on the server, inside the same transaction as the change.
 - **Review is a loop, not a flag.** A change request stays open until the author
   answers it. Editing the plan does not close it; an explicit *resubmit* with a
   response to every open request does, and approval is refused while any is open.
-- **Every version is kept.** Each write stores an immutable snapshot in the same
+- **Every version is kept** (through the application's own API; the nightly demo reset deletes demo data and
+  history). Each write stores a snapshot, which the app never edits, in the same
   transaction, the approved version is pinned, and any two versions can be
   compared ("changes since approval").
-- **Notes are append-only**, attributed and timestamped.
+- **Notes are append-only** through the application (no edit or delete endpoint), attributed and timestamped.
 - Concurrent edits cannot silently overwrite each other. Every plan carries a
   `version`; a save or transition must name the version it was based on, and a
   stale one is refused with `409 stale_write` instead of winning. The editor
@@ -87,7 +128,7 @@ and enforced on the server, inside the same transaction as the change.
 
 A cited source shows what the model was *given*. It does not show that the
 model *used it correctly*, or that an action is something the company
-*requires*. So every AI action carries a label the server stands behind:
+*requires*. So every AI action carries a label, and the server checks the one claim it can check mechanically (that a quotation appears in a cited source):
 
 | Label | Means |
 | --- | --- |
@@ -214,7 +255,7 @@ semantic knowledge and is not a substitute for a real model.
 
 ## Evaluation
 
-Whether a plan is *really* grounded is measured, not asserted. 24 labelled
+Whether a plan is grounded in its sources is measured, not asserted. 24 labelled
 cases run through the production retrieval and generation code and are
 published at **`/evals`** (methodology and metric definitions in
 [`evals/README.md`](evals/README.md)).
@@ -325,23 +366,49 @@ npm run evals -- --mode full --embedder openai --judge   # full pipeline
 npm run evals:inspect -- hk-trap-escalation              # audit one case
 ```
 
-## Tech stack
+## Technology Stack
 
-Next.js 16 (App Router) · React 19 · TypeScript (strict) · Tailwind CSS 4 ·
-OpenAI Responses API (strict structured output) and embeddings · pgvector ·
-Zod · Drizzle ORM · Supabase Postgres · Vitest (+ PGlite) · Playwright
+### Frontend components
 
-## Project structure
+React 19 · Next.js 16 (App Router) · TypeScript (strict) · Tailwind CSS 4 · Zod schemas shared with the server
+
+### Backend components
+
+Next.js route handlers (Node 22) · Drizzle ORM · PostgreSQL with pgvector (hosted on Supabase) · OpenAI Responses
+API (strict structured output) and `text-embedding-3-small` embeddings · signed-cookie sessions · Vercel (hosting
+and cron) · Vitest (with PGlite) and Playwright for tests · GitHub Actions for CI
+
+Supabase is used only as the hosted PostgreSQL database (with the pgvector
+extension and row-level security enabled), reached through Drizzle and the plain
+`postgres.js` driver. The app does not use the Supabase client, Auth, Storage or
+Realtime; the demo sign-in is its own signed-cookie persona picker.
+
+## Project Structure
 
 ```
-app/api/                     route handlers: plans, transitions, generate, audit
-lib/schemas/                 Zod schemas shared by API, client and OpenAI schema
-lib/server/                  database, repository, generation service, config
+app/                         Next.js App Router
+  api/                       route handlers: plans, transitions, notes, revisions, generation,
+                             knowledge lifecycle, audit, auth, cron and demo reset
+  evals/                     the public /evals page (benchmark and counterfactual results)
+  plans/[id]/                deep link to one plan
+lib/
+  schemas/                   Zod schemas shared by API, client and the OpenAI structured output
+  server/                    database, repositories, generation, retrieval, knowledge lifecycle, config
+  evals/                     metrics, harness, judge and counterfactual used by the evaluation scripts
+  knowledge/                 Markdown document parser (numbered sections become citations)
+  prompts.ts, provenance.ts  the model prompt, and the quotation check
 features/action-plans/
   components/                UI, composed from small pieces
-  hooks/                     useActionPlans, useActionPlanEditor, useAuditEvents
-  domain/                    pure logic: lifecycle rules, utilities
+  hooks/                     client state: plans, editor, notes, revisions, knowledge
+  domain/                    pure rules shared by client and server: lifecycle, permissions, diffs
   services/                  typed client for the backend API
+knowledge/                   the synthetic corpus: 7 documents, 49 citeable sections
+evals/                       the 24-case benchmark, its methodology and published results
+drizzle/                     SQL migrations (0000 to 0008)
+e2e/                         Playwright tests (own database and fake AI; no credentials)
+scripts/                     database check, corpus ingestion, retrieval probe, eval runners
+docs/ai-dev/                 the AI-assisted development record
+assets/                      the project tile and README screenshots
 ```
 
 ## Data model
@@ -378,10 +445,30 @@ reachable through Supabase's public Data API; only the server reads and writes.
 | `GET/PUT/DELETE /api/knowledge/:id` | A document with its sections; edit or delete a draft |
 | `POST /api/knowledge/:id/publish`, `.../withdraw` | Publish a draft (reviewers; not the author); withdraw an approved document with a reason |
 
-Every endpoint requires a session (`401`), checks the role (`403`) and validates
+Every endpoint except health, the persona list, login, logout and the cron route
+requires a session (`401`), checks the role (`403`) where one applies, and validates
 its body (`400`, `415`). Errors share one shape,
 `{ error: { code, message, requestId, details? } }`, and every response carries
 an `x-request-id` header.
+
+## Known limitations of the public demo
+
+These are verified against the code and left as they are for now; none of them is hidden elsewhere.
+
+- **Anyone can be anyone.** The demo is passwordless by design: a visitor can switch persona and act as any role,
+  including a reviewer who publishes knowledge documents. Role checks are enforced on the server, but the demo
+  does not authenticate who is choosing the role.
+- **Reset.** A manager persona can reset the demo manually, and the nightly reset (configured in `vercel.json`;
+  see `DEPLOYMENT.md`) runs as two database transactions, not one.
+- **Generation limits are checked, not atomically reserved.** Per-address, per-persona and daily limits are read
+  before a generation is recorded, so concurrent requests can slightly exceed them. The backstop is a hard usage
+  limit on the OpenAI account, not code.
+- **Knowledge reads are not role-restricted.** Any signed-in persona can read a knowledge document by id,
+  including drafts; writes and publishing are role-checked.
+- **A save with no changes can still bump a plan's `version`**, which can make another editor's next save fail
+  with `409 stale_write` unnecessarily.
+- **Cross-site protection** rejects a state-changing request whose `Sec-Fetch-Site` or `Origin` header is
+  cross-site, but accepts one that carries neither header.
 
 ## Status and roadmap
 
@@ -411,7 +498,10 @@ Runs on Vercel (region `icn1`) with Supabase Postgres, with per-address and
 global generation limits, a nightly demo reset, and a `/api/health` endpoint.
 See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the runbook and its limitations.
 
-## Running locally
+## Installation
+
+Prerequisites: Node 22, a PostgreSQL database with the pgvector extension (for example a Supabase project), and an
+OpenAI API key.
 
 ```bash
 npm install
@@ -422,9 +512,13 @@ npm run db:check             # verify the connection, tables and seeded personas
 npm run dev
 ```
 
+## Usage
+
 Open <http://localhost:3000> and sign in as **Maya Chen** (Sustainability
 Manager), then use **Load Demo Cases** to explore without calling the model.
-Switch to **Daniel Ortiz** (Reviewer) to approve or request changes.
+Switch to **Daniel Ortiz** (Reviewer) to approve or request changes. Expected behaviour: the author cannot approve
+their own plan, a reviewer's change request stays open until the author answers it, and a stale save is refused
+with `409`.
 
 ```bash
 npm run typecheck
@@ -451,3 +545,7 @@ data or spend real credit.
 
 CI (GitHub Actions) runs lint, typecheck, tests and build, and the end-to-end
 suite in a separate job.
+
+## Licence
+
+Released under the [MIT licence](LICENSE).
