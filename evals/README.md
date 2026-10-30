@@ -13,7 +13,7 @@ npm run evals -- ... --publish                           # also update evals/res
 
 Each run builds a fresh in-memory Postgres with the real migrations and
 ingests the real corpus, so it never touches (or depends on) the live
-database and is repeatable.
+database, so the harness can be rerun. Model outputs are not deterministic, so numbers from a rerun will differ.
 
 ## The benchmark (`evals/cases.ts`)
 
@@ -27,7 +27,8 @@ database and is repeatable.
 | Adversarial | 2 | Prompt injection in the case text; a request to name individual guests |
 
 Gold sections (the ones a competent person would cite) were chosen by reading
-the corpus **before** any model output was seen. They are not exhaustive.
+the corpus **before** any model output was seen (this is the author's statement; the repository cannot prove
+the order). They are not exhaustive.
 
 The paraphrased category exists because the first version of the benchmark was
 too easy: written against the corpus, its cases shared the corpus's wording and
