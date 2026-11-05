@@ -12,23 +12,22 @@ energy use into a structured action plan that is reviewed by a person, approved,
 tracked against KPIs, and closed out.
 
 **Live demo:** <https://sustainops.vercel.app> (sign in as any persona; data is
-fictional and reset nightly) · **Evaluation results:** <https://sustainops.vercel.app/evals>
+fictional and reset nightly) · **Evaluation results:** <https://sustainops.vercel.app/evals> · **Video:** <https://youtu.be/EdNG-EE8QnM>
 
 > All properties, policies and data in this project are fictional. It originated
 > as a prototype I built for a hotel company as part of a job interview, and was rebuilt as a generic, standalone
 > product with no company data or branding.
 
-## B1 Builders submission
+## Links
 
-SustainOps is the organisation-scale project in my 42 Singapore B1 Builders submission: several roles,
-server-enforced permissions, an audit trail, a knowledge base with its own lifecycle, and a published
-evaluation. The individual-user project is [TimeTracker42](https://github.com/Equinox201/TimeTracker42).
+SustainOps is built for a team rather than one person: several roles, server-enforced permissions, an audit
+trail, a knowledge base with its own lifecycle, and a published evaluation.
 
-- [Source repository](https://github.com/Equinox201/SustainOps) (public)
+- [Walkthrough video](https://youtu.be/EdNG-EE8QnM) (YouTube)
 - [Live demo](https://sustainops.vercel.app)
 - [Published evaluation results](https://sustainops.vercel.app/evals)
 - [AI-assisted development record](docs/ai-dev/README.md)
-- Project walkthrough video: TODO(Nicolas)
+- [Source repository](https://github.com/Equinox201/SustainOps) (public, MIT licence)
 
 ## Overview
 
@@ -67,7 +66,7 @@ SustainOps is built, deployed and evaluated. What was achieved, measured (detail
 
 ## Demo
 
-The walkthrough below follows one plan from start to finish; the screenshots are captured from the seeded, fictional demo plans (see [`assets/screenshots/`](assets/screenshots/README.md)). To try it yourself, open the [live demo](https://sustainops.vercel.app), sign in as **Maya Chen** and choose **Load Demo Cases**. Video: TODO(Nicolas).
+The walkthrough below follows one plan from start to finish; the screenshots are captured from the seeded, fictional demo plans (see [`assets/screenshots/`](assets/screenshots/README.md)). To try it yourself, open the [live demo](https://sustainops.vercel.app), sign in as **Maya Chen** and choose **Load Demo Cases**. The [walkthrough video](https://youtu.be/EdNG-EE8QnM) shows the same flow.
 
 | Overview | Evidence behind each action | Review loop |
 | --- | --- | --- |
