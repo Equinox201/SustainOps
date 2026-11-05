@@ -1,13 +1,10 @@
 # AI-assisted development record
 
-How AI tools were used to build SustainOps, written by me (Nicolas Samarine) for the 42 Singapore B1 Builders
-submission. SustainOps is the organisation-scale project of the pair; the individual-use project is
-[TimeTracker42](https://github.com/Equinox201/TimeTracker42). The product, its architecture and its measured
-limits are in the [README](../../README.md).
+How AI tools were used to build SustainOps, written by me (Nicolas Samarine). The product, its architecture and
+its measured limits are in the [README](../../README.md), and the [walkthrough video](https://youtu.be/EdNG-EE8QnM) shows it running.
 
-**Where the evidence is:** the git history has 16 commits on `main` and 14 merged pull requests (#1 to #14), made
-between 14 and 29 October 2026. The pull-request branches hold 33 distinct commits, and all 33 carry a
-`Co-Authored-By: Claude` trailer.
+**Where the evidence is:** pull requests #1 to #14 (14 to 29 October 2026) hold 33 distinct commits, and all 33
+carry a `Co-Authored-By: Claude` trailer. Later pull requests are documentation.
 
 **Who wrote what.** The original interview prototype is the starting point of this repository (the first commit).
 I wrote its form and the basic logic that calls OpenAI myself; I then let Codex take over the prototype. When I
@@ -19,14 +16,14 @@ My part throughout was direction, decisions, secrets, review and merging.
 | Tool | Purpose |
 |---|---|
 | **Claude Code** (desktop app, model `claude-sonnet-5-5`) | The main developer of SustainOps from the first milestone on: implementation, tests, debugging, reading CI and production state, drafting documentation, opening pull requests. It also ran the evaluation and probe scripts in my terminal, because they needed my API key |
-| **Codex** (OpenAI) | The original interview prototype: I wrote the form and the basic OpenAI call myself, and Codex then built out the rest. Later, on 29 October, one read-only independent review of the submission; its report contained errors, and I checked each finding myself before acting on any |
-| **ChatGPT** | A roadmap for turning the prototype into a portfolio project (which I pasted into Claude Code and asked it to critique), and a summary of the programme requirements |
+| **Codex** (OpenAI) | The original interview prototype: I wrote the form and the basic OpenAI call myself, and Codex then built out the rest. Later, on 29 October, one read-only independent review of the documentation and code; its report contained errors, and I checked each finding myself before acting on any |
+| **ChatGPT** | A roadmap for turning the prototype into a portfolio project (which I pasted into Claude Code and asked it to critique), and a plan for the documentation |
 | **OpenAI API** (in the product) | `gpt-5-mini` with strict structured output generates the action plans, and a model from the same family acts as the judge in the evaluation; `text-embedding-3-small` embeds the policy documents |
 
 **Agents.** Claude Code was the only AI agent, working in one long session. I did not define sub-agents or custom
 roles. The standing instructions any agent follows in this repository are in [`AGENTS.md`](../../AGENTS.md):
 fictional data only, schema-bound AI output, tests required, evaluation kept in step with the product. Claude Code
-used its plan mode three times (the Phase 2 roadmap, the submission plan, a CI fix) and asked me multiple-choice
+used its plan mode three times (the Phase 2 roadmap, the documentation plan, a CI fix) and asked me multiple-choice
 questions at decision points.
 
 **MCP servers.** Supabase (tables, migrations, queries, security advisors), Vercel (projects, documentation), a
@@ -59,7 +56,7 @@ Verbatim excerpts, typos included.
 | 4 | "what do you think about the following features? would theere be any additional profile value to developping these?" (followed by 33 proposed features) | Judged the list "a good product roadmap and a poor portfolio backlog": about 14 features worth building, 8 cheap polish items, 11 to skip. Asked my target role (full-stack / product engineer) and time budget (3+ weeks), then planned five bundles, B1 to B5, each with a measurable claim | Accepted the plan and merged B1 to B4 (#10 to #13) |
 | 5 | "does the project actually use supabase?" | Searched the code: Supabase is only the hosted Postgres, through Drizzle. No Supabase client, Auth, Storage or Realtime | Accepted; the README's technology section now says exactly that |
 | 6 | "this is the CI error I get" (a pasted failing Playwright log) | Found its own mistake: `.gitignore` swallowed the generated counterfactual report, so CI built a page without it, and so would production. Fixed it narrowly, did not weaken the test, and verified on a fresh clone | Merged after CI passed |
-| 7 | "I need to submit my project tomorrow for the B1 builders program ... Is it possible to do B5 first or should I stop here and get ready for submission and work on B5 at a later time?" | Recommended stopping: B5 was five to six days of work, would add a deploy-coupled migration and a new public write surface the night before | Accepted: no new features before submission |
+| 7 | "... Is it possible to do B5 first or should I stop here and ... work on B5 at a later time?" | Recommended stopping and documenting what exists: B5 was five to six days of work and would add a deploy-coupled migration and a new public write surface late in the project | Accepted: no new features; finish and document |
 
 In prompt 1 I wrote that I built the prototype with ChatGPT. To be precise, the prototype was built with Codex (see
 AI Tools), and the roadmap I pasted was ChatGPT's.
@@ -76,8 +73,8 @@ AI Tools), and the roadmap I pasted was ChatGPT's.
 | Retrieval similarity floor: from a guess of 0.28 to a measured 0.45 after probing the real embedding model | Accepted; the README states it rests on six probe cases | Claude Code, from measurements I ran |
 | Publish evaluation limits, including results that did not flatter the project | Accepted | Claude Code proposed, I approved |
 | Build 14 of 33 features; defer collaboration threads, cross-department plans and lessons-from-history | Accepted | Claude Code recommended, I approved |
-| Do not build B5 before the submission | Accepted | Me |
-| Independent Codex review: fix its confirmed findings now? | No code changes the day before submission. Five real findings are documented under "Known limitations of the public demo" in the README | Me |
+| Do not build B5 (outcomes) yet; finish and document what exists | Accepted | Me |
+| Independent Codex review: fix its confirmed findings now? | No code changes while finishing the documentation. Five real findings are documented under "Known limitations of the public demo" in the README | Me |
 
 ### Verification
 
